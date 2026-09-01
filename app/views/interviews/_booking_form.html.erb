@@ -1,0 +1,57 @@
+<%= turbo_frame_tag "booking_form" do %>
+  <% if @booking %>
+    <section class="booking">
+      <h2>予約フォーム</h2>
+
+      <p class="booking__slot">
+        <%= @interview.start_at.strftime("%Y/%m/%d (%a) %-H:%M") %>–<%= @interview.end_at.strftime("%-H:%M") %>
+        ／ 面接官：<%= @selected_interviewers.map(&:name).join("・") %>
+      </p>
+
+      <% if @booking_error %>
+        <p class="flash-alert" role="alert"><%= @booking_error %></p>
+      <% end %>
+
+      <%= form_with model: @interview, url: interviews_path, method: :post,
+                    data: { turbo_frame: "_top" }, class: "booking__form" do |f| %>
+        <% if @interview.errors.any? %>
+          <ul class="errors">
+            <% @interview.errors.full_messages.each do |msg| %>
+              <li><%= msg %></li>
+            <% end %>
+          </ul>
+        <% end %>
+
+        <%# 日時・面接官は画面①から引き継ぐ（§6.5 画面①b）。編集不可＝hidden %>
+        <%= f.hidden_field :start_at, value: @interview.start_at.iso8601 %>
+        <%= f.hidden_field :end_at,   value: @interview.end_at.iso8601 %>
+        <%= hidden_field_tag :week_of, @week_of.to_date.iso8601 %>
+        <%= hidden_field_tag :duration, @duration %>
+        <% @selected_interviewers.each do |user| %>
+          <%= hidden_field_tag "user_ids[]", user.id %>
+        <% end %>
+
+        <p>
+          <%= f.label :candidate_name, "候補者名" %><br>
+          <%= f.text_field :candidate_name, required: true %> 様
+        </p>
+        <p>
+          <%= f.label :location_type, "実施方法" %><br>
+          <%= f.select :location_type, [ [ "オンライン", "online" ], [ "対面", "onsite" ] ] %>
+        </p>
+        <p>
+          <%= f.label :location_text, "場所（任意）" %><br>
+          <%= f.text_field :location_text %>
+        </p>
+        <p>
+          <%= f.label :meet_url, "会議URL（任意）" %><br>
+          <%= f.url_field :meet_url %>
+        </p>
+
+        <%= f.submit "予約する" %>
+      <% end %>
+    </section>
+  <% else %>
+    <p class="hint">カレンダーの空き枠（時刻リンク）を選ぶと、ここに予約フォームが開きます。</p>
+  <% end %>
+<% end %>

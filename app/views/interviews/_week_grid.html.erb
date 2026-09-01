@@ -45,9 +45,18 @@
           <% else %>
             <div class="week-grid__body" style="height:<%= ((view_to - view_from) * InterviewsHelper::PX_PER_MIN).round %>px">
               <% day.free_windows.each do |w| %>
-                <div class="seg seg--free" role="button" aria-disabled="true"
+                <div class="seg seg--free"
                      style="<%= segment_style(view_from, w[:start_at], w[:end_at]) %>">
-                  <%= hhmm(w[:start_at]) %>–<%= hhmm(w[:end_at]) %> 空き
+                  <span class="seg__label"><%= hhmm(w[:start_at]) %>–<%= hhmm(w[:end_at]) %> 空き</span>
+                  <span class="seg__picks">
+                    <% window_starts(w).each do |t| %>
+                      <%= link_to hhmm(t), new_interview_path(
+                            user_ids: @user_ids, duration: @duration,
+                            week_of: @week_of.to_date.iso8601,
+                            start_at: t.iso8601, end_at: (t + @duration.minutes).iso8601),
+                            data: { turbo_frame: "booking_form" }, class: "seg__pick" %>
+                    <% end %>
+                  </span>
                 </div>
               <% end %>
 

@@ -1,0 +1,24 @@
+<% content_for :title, "予約詳細" %>
+
+<main class="interview-show">
+  <h1>予約を確定しました</h1>
+
+  <dl>
+    <dt>候補者</dt><dd><%= @interview.candidate_name %> 様</dd>
+    <dt>日時</dt>
+    <dd><%= @interview.start_at.strftime("%Y/%m/%d (%a) %-H:%M") %>–<%= @interview.end_at.strftime("%-H:%M") %></dd>
+    <dt>実施方法</dt><dd><%= @interview.location_type == "online" ? "オンライン" : "対面" %></dd>
+    <% if @interview.location_text.present? %><dt>場所</dt><dd><%= @interview.location_text %></dd><% end %>
+    <% if @interview.meet_url.present? %><dt>会議URL</dt><dd><%= link_to @interview.meet_url, @interview.meet_url %></dd><% end %>
+    <dt>面接官</dt><dd><%= @interview.attendees.map(&:name).join("・") %></dd>
+    <dt>登録者</dt><dd><%= @interview.created_by.name %></dd>
+  </dl>
+
+  <p class="hint">
+    カレンダー上の占有（<code>calendar_events</code> / <code>source: "app"</code>）を
+    <%= @interview.calendar_events.size %> 件作成しました。
+    次回以降の空き判定にこの面接が反映されます。
+  </p>
+
+  <p><%= link_to "続けて面接を組む", new_interview_path %></p>
+</main>

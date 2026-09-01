@@ -75,4 +75,103 @@ class InterviewsControllerTest < ActionDispatch::IntegrationTest
     assert_select "a[href*=?]", "week_of=2026-09-07" # 翌週
     assert_select "a[href*=?]", "duration=45"
   end
+
+  # --- 予約フォーム（§6.6 手順5）--------------------------------------------
+  test "new：空き枠リンク（start_at付き）で予約フォームが開く" do
+    get new_interview_path, params: { user_ids: [ @iv1.id, @iv2.id ], duration: 60,
+                                      week_of: "2026-08-31",
+                                      start_at: "2026-09-02T10:00:00+09:00",
+                                      end_at: "2026-09-02T11:00:00+09:00" }
+    assert_response :success
+    assert_select "turbo-frame#booking_form .booking" do
+      assert_select "input[type=hidden][name=?][value=?]", "interview[start_at]", "2026-09-02T10:00:00+09:00"
+      assert_select "input[type=hidden][name=?]", "user_ids[]", count: 2
+      assert_select "input[name=?]", "interview[candidate_name]"
+    end
+    assert_select ".booking__slot", text: /伊藤 一郎・佐藤 次郎/
+  end
+
+  # --- 予約確定（§6.6 手順7 / §5 / A-3）----------------------------------
+  BOOK = { candidate_name: "山田", location_type: "online" }.freeze
+
+  def booking_params(start_at:, end_at:, user_ids:, **over)
+    { interview: BOOK.merge(over).merge(start_at: start_at, end_at: end_at), user_ids: user_ids }
+  end
+
+  test "create：全員空きなら Interview・出席者・占有を作って詳細へ" do
+    post interviews_path, params: booking_params(
+      start_at: "2026-09-02T10:00:00+09:00", end_at: "2026-09-02T11:00:00+09:00",
+      user_ids: [ @iv1.id, @iv2.id ])
+
+    interview = Interview.last
+    assert_redirected_to interview_path(interview)
+    assert_equal "山田", interview.candidate_name
+    assert_equal @operator.id, interview.created_by_id
+    assert_equal [ @iv1.id, @iv2.id ].sort, interview.attendees.pluck(:id).sort
+
+    events = interview.calendar_events
+    assert_equal 2, events.size
+    assert(events.all? { |e| e.source == "app" })
+    assert(events.all? { |e| e.title == "面接：山田様" }) # BR-11
+    assert(events.all? { |e| !e.all_day })
+  end
+
+  test "create：確定した面接は次の検索で空き枠から外れる（自ダブルブッキング防止）" do
+    common = { user_ids: [ @iv1.id, @iv2.id ], duration: 60, week_of: "2026-08-31" }
+
+    get calendar_interviews_path, params: common
+    assert_select "a[href*=?]", "start_at=2026-09-02T10%3A00", text: "10:00"
+
+    post interviews_path, params: booking_params(
+      start_at: "2026-09-02T10:00:00+09:00", end_at: "2026-09-02T11:00:00+09:00",
+      user_ids: [ @iv1.id, @iv2.id ])
+    assert_response :redirect
+
+    get calendar_interviews_path, params: common
+    assert_select "a[href*=?]", "start_at=2026-09-02T10%3A00", count: 0
+    assert_select "a[href*=?]", "start_at=2026-09-02T11%3A00", text: "11:00" # 直後は空き（隣接）
+  end
+
+  test "create：1名でも埋まっていれば予約全体を中止（部分確定しない）" do
+    # @iv1 は 2026-09-02 13:00-14:00 に「部門定例」あり（setup）
+    assert_no_difference [ "Interview.count", "InterviewAttendee.count", "CalendarEvent.count" ] do
+      post interviews_path, params: booking_params(
+        start_at: "2026-09-02T13:00:00+09:00", end_at: "2026-09-02T14:00:00+09:00",
+        user_ids: [ @iv1.id, @iv2.id ])
+    end
+    assert_response :unprocessable_entity
+    assert_select ".flash-alert", text: /伊藤 一郎.*予定が埋まりました/
+    assert_select "input[type=hidden][name=?][value=?]", "interview[start_at]", "2026-09-02T13:00:00+09:00"
+  end
+
+  test "create：過去日時は弾く（§9.3-1）" do
+    assert_no_difference "Interview.count" do
+      post interviews_path, params: booking_params(
+        start_at: "2020-01-01T10:00:00+09:00", end_at: "2020-01-01T11:00:00+09:00",
+        user_ids: [ @iv1.id, @iv2.id ])
+    end
+    assert_response :unprocessable_entity
+    assert_select ".errors", text: /現在より後の日時/
+  end
+
+  test "create：候補者名が未入力なら弾き、日時・面接官は保持する" do
+    assert_no_difference "Interview.count" do
+      post interviews_path, params: booking_params(
+        start_at: "2026-09-02T10:00:00+09:00", end_at: "2026-09-02T11:00:00+09:00",
+        user_ids: [ @iv1.id, @iv2.id ], candidate_name: "")
+    end
+    assert_response :unprocessable_entity
+    assert_select "input[type=hidden][name=?][value=?]", "interview[start_at]", "2026-09-02T10:00:00+09:00"
+    assert_select "input[type=hidden][name=?]", "user_ids[]", count: 2
+  end
+
+  test "show：出席者と占有件数を表示する" do
+    post interviews_path, params: booking_params(
+      start_at: "2026-09-02T10:00:00+09:00", end_at: "2026-09-02T11:00:00+09:00",
+      user_ids: [ @iv1.id, @iv2.id ])
+    follow_redirect!
+    assert_response :success
+    assert_select "dd", text: /伊藤 一郎・佐藤 次郎/
+    assert_select ".hint", text: /2 件作成/
+  end
 end

@@ -51,6 +51,19 @@ module InterviewsHelper
     time.strftime("%-H:%M")
   end
 
+  # 空き帯の中から選ばせる開始時刻の候補。step_minutes 刻みに、末尾（まだ収まる
+  # 最後の開始）を必ず含める。5分刻みの生の枠を全部出すと画面が埋まるため間引く。
+  def window_starts(window, step_minutes: 30)
+    starts = []
+    cursor = window[:start_at]
+    while cursor <= window[:last_start]
+      starts << cursor
+      cursor += step_minutes.minutes
+    end
+    starts << window[:last_start] unless starts.include?(window[:last_start])
+    starts
+  end
+
   def wday_ja(date)
     WDAY_JA[date.wday]
   end

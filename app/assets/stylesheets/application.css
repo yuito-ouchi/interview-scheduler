@@ -36,3 +36,15 @@ main { max-width: 1100px; margin: 0 auto; padding: 1.5rem; }
 .seg--allday { position: static; margin: 2px; }
 .seg--blocked { background: repeating-linear-gradient(45deg, #f8cecc, #f8cecc 5px, #f2bcb9 5px, #f2bcb9 10px); border: 1px solid #c0504d; }
 .seg--closed { background: #e8e8e8; border: 1px solid #ccc; }
+.seg__label { display: block; font-weight: 600; }
+.seg__picks { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 1px; }
+.seg__pick { background: #fff; border: 1px solid #5a9e56; border-radius: 3px; padding: 0 3px; font-size: .7rem; text-decoration: none; }
+.seg__pick:hover { background: #5a9e56; color: #fff; }
+
+/* --- 画面①b：予約フォーム / 予約詳細 --------------------------------- */
+.booking { margin-top: 1.5rem; padding: 1rem; border: 1px solid #5a9e56; border-radius: 6px; background: #f3faf2; max-width: 460px; }
+.booking__slot { font-weight: 600; }
+.booking__form p { margin: .5rem 0; }
+.errors { color: #b3261e; }
+.interview-show dl { display: grid; grid-template-columns: 6rem 1fr; gap: .35rem 1rem; }
+.interview-show dt { font-weight: 600; color: #555; }
