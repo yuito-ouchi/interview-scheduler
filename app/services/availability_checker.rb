@@ -11,9 +11,14 @@ class AvailabilityChecker
 
   # start_at / end_at は ActiveSupport::TimeWithZone（JST）で渡す。
   # 文字列からの生成（Time.zone.parse）は呼び出し側の責務（A-1 TZ規約）。
-  def initialize(start_at:, end_at:)
-    @start_at = start_at
-    @end_at   = end_at
+  #
+  # tenant_rules を渡すとテナント全体ルールのクエリを省く。週カレンダーは
+  # 区間ごとに本クラスを new するため、呼び出し側で1度だけ読み込んで渡す
+  # （渡さなければインスタンス内で1回だけクエリしてメモ化）。
+  def initialize(start_at:, end_at:, tenant_rules: nil)
+    @start_at              = start_at
+    @end_at                = end_at
+    @injected_tenant_rules = tenant_rules
   end
 
   # users は includes(:availability_rules) / preload(:calendar_events) 済みで渡す（A-2-4）。
@@ -108,12 +113,10 @@ class AvailabilityChecker
     end
   end
 
-  # テナント全体ルール（user_id: nil）。1 インスタンスにつき 1 クエリだけ発行する。
-  # 週カレンダーでは区間ごとに本クラスを new するため、その段階（WeeklySlotFinder）
-  # では 480 回のクエリを避けるためテナントルールを外から注入できるようにする。
-  # ここでは検索時・確定時の単発呼び出しを想定してインスタンス内メモ化に留める。
+  # テナント全体ルール（user_id: nil）。注入されていればそれを使い、
+  # なければインスタンスにつき 1 回だけクエリしてメモ化する（A-2-4）。
   def tenant_rules
-    @tenant_rules ||= AvailabilityRule.where(user_id: nil).to_a
+    @injected_tenant_rules || (@tenant_rules ||= AvailabilityRule.where(user_id: nil).to_a)
   end
 
   # 深夜 0 時からの経過分。time カラムも start_at も JST の壁時計で読む（A-1）。

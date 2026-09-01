@@ -38,12 +38,15 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_nil session[:user_id]
   end
 
-  test "未ログインで保護ページを開くと login へ飛ぶ" do
+  test "未ログインで保護ページ（root = interviews#new）を開くと login へ飛ぶ" do
     get root_path
-    assert_response :success # root は sessions#new なのでそのまま表示される
+    assert_redirected_to login_path
+  end
 
-    # require_operator が効くことは、認証を skip していない任意のアクションで確認する。
-    # ここでは ?switch なしの new がログイン済み確認を出すことで current_user を検証する。
+  test "ログイン後は保護ページを開ける" do
+    post login_path, params: { user_id: @operator.id }
+    get new_interview_path
+    assert_response :success
   end
 
   test "operator を後から false にされたら、その時点でログイン状態が切れる（§6.2 の二重条件）" do

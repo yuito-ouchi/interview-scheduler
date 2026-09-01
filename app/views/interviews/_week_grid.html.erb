@@ -1,0 +1,80 @@
+<%= turbo_frame_tag "week_calendar" do %>
+  <% if @user_ids.blank? %>
+    <p class="hint">面接官を選んで「カレンダーを表示」を押してください。</p>
+
+  <% elsif @users.blank? %>
+    <p class="hint">選択された面接官が見つかりません。選び直してください。</p>
+
+  <% else %>
+    <% view_from, view_to = calendar_bounds(@days) %>
+
+    <nav class="week-nav">
+      <%= link_to "← 前週", calendar_interviews_path(week_of: (@week_of.to_date - 7).iso8601,
+            user_ids: @user_ids, duration: @duration) %>
+      <span><%= @week_of.to_date.strftime("%Y年%-m月%-d日") %> の週 ／ 所要 <%= @duration %> 分 ／
+        <%= @users.map(&:name).join("・") %></span>
+      <%= link_to "翌週 →", calendar_interviews_path(week_of: (@week_of.to_date + 7).iso8601,
+            user_ids: @user_ids, duration: @duration) %>
+    </nav>
+
+    <p class="week-legend">
+      <span class="seg seg--free">空き</span>
+      <span class="seg seg--busy">予定あり</span>
+      <span class="seg seg--blocked">予約不可</span>
+      <span class="seg seg--closed">営業日外</span>
+      <small>※ 空き枠のクリックから予約フォームへ、は次の段階です</small>
+    </p>
+
+    <% if @days.all? { |d| d.free_windows.empty? } %>
+      <p class="hint hint--empty">
+        この週に全員が空く枠はありません。
+        <%= link_to "翌週を確認", calendar_interviews_path(week_of: (@week_of.to_date + 7).iso8601,
+              user_ids: @user_ids, duration: @duration) %>
+      </p>
+    <% end %>
+
+    <div class="week-grid">
+      <% @days.each do |day| %>
+        <section class="week-grid__day">
+          <header class="week-grid__head">
+            <%= day.date.strftime("%-m/%-d") %>（<%= wday_ja(day.date) %>）
+          </header>
+
+          <% if day.closed? || view_from.nil? %>
+            <div class="week-grid__body week-grid__body--closed">営業日外</div>
+          <% else %>
+            <div class="week-grid__body" style="height:<%= ((view_to - view_from) * InterviewsHelper::PX_PER_MIN).round %>px">
+              <% day.free_windows.each do |w| %>
+                <div class="seg seg--free" role="button" aria-disabled="true"
+                     style="<%= segment_style(view_from, w[:start_at], w[:end_at]) %>">
+                  <%= hhmm(w[:start_at]) %>–<%= hhmm(w[:end_at]) %> 空き
+                </div>
+              <% end %>
+
+              <% day_events(@users, day.date).each do |ev| %>
+                <% if ev[:all_day] %>
+                  <div class="seg seg--busy seg--allday">
+                    <%= ev[:name] %>／<%= ev[:title] %>（終日）
+                  </div>
+                <% else %>
+                  <div class="seg seg--busy"
+                       style="<%= segment_style(view_from, ev[:start_at], ev[:end_at]) %>">
+                    <%= ev[:name] %>／<%= ev[:title] %>
+                    <small><%= hhmm(ev[:start_at]) %>–<%= hhmm(ev[:end_at]) %></small>
+                  </div>
+                <% end %>
+              <% end %>
+
+              <% day_blocks(@users, @tenant_rules, day.date).each do |bl| %>
+                <div class="seg seg--blocked"
+                     style="<%= segment_style(view_from, bl[:start_at], bl[:end_at]) %>">
+                  <%= bl[:label].presence || "予約不可" %>
+                </div>
+              <% end %>
+            </div>
+          <% end %>
+        </section>
+      <% end %>
+    </div>
+  <% end %>
+<% end %>

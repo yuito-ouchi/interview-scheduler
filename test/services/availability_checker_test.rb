@@ -153,8 +153,19 @@ class AvailabilityCheckerTest < ActiveSupport::TestCase
   end
 
   # --- 週走査（WeeklySlotFinder）------------------------------------------------
+  # 詳細は test/services/weekly_slot_finder_test.rb。ここでは A-2-5 の一覧を満たすため
+  # 「営業時間外の枠を返さない」ことだけ確認する。
   test "15. WeeklySlotFinder が営業時間外の枠を返さない" do
-    skip "WeeklySlotFinder は画面①（週カレンダー）の段階で実装する（別紙A A-2-3 / §8 実装順4）"
+    tenant_rules = AvailabilityRule.where(user_id: nil).to_a
+    users = User.where(id: @user.id).includes(:availability_rules, :calendar_events).to_a
+
+    WeeklySlotFinder.new(users: users, week_of: Date.new(2026, 8, 31), duration_min: 60,
+                         tenant_rules: tenant_rules).call.reject(&:closed?).each do |day|
+      day.free_windows.each do |w|
+        assert w[:start_at] >= day.open_from
+        assert w[:end_at]   <= day.open_to
+      end
+    end
   end
 
   test "16. 2名選択時、片方だけ埋まっている区間は all_available? が false" do
