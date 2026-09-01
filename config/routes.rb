@@ -9,6 +9,10 @@ Rails.application.routes.draw do
   # get "manifest" => "rails/pwa#manifest", as: :pwa_manifest
   # get "service-worker" => "rails/pwa#service_worker", as: :pwa_service_worker
 
-  # Defines the root path route ("/")
-  # root "posts#index"
+  # 簡易ログイン（F-05 / 仕様書 §6.2）。パスワード認証はしない
+  get  "login", to: "sessions#new"
+  post "login", to: "sessions#create"
+
+  # 暫定。画面①（面接を組む）実装時に "interviews#new" へ差し替える（§7）
+  root "sessions#new"
 end
