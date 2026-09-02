@@ -10,6 +10,8 @@
 |---|---|---|
 | 初版 | 技術選定・空き判定・排他制御・ルーティング | — |
 | **第2版** | **主動線の入れ替えに伴い A-2-3（週走査）と A-4（ルーティング）を改訂。A-2-1（テナント／個人ルールの合成）と A-5（簡易ログイン）を新設。テストケースを11→16に追加** | **H2-01〜H2-05** |
+| **第3版** | **A-3（排他制御）を実装結果に更新**（`isolation: :immediate` は非対応と判明、素の `transaction` で当初目的を達成／過去日時バリデーションを実装済みに更新）。**A-2-3に「あと1人で空き」を追加**（未テストである旨を明記）。**仕様書と重複していた A-1・A-4・A-5 の内容を仕様書側への参照に整理し、本紙は実装コードそのものと差分の説明に絞った** | 実装完了後のUI改修（参加者選択UI・ニアミス表示）とドキュメント総点検 |
+| **第4版** | **用語を全面統一。** `interviews`→`meetings`、`interview_attendees`→`meeting_attendees`、`candidate_name`→`guest_name`、`users.interviewer`→`users.participant` にDB・コード・テストを一括リネーム（本紙のコード例もすべて実装コードと一致させた）。「面接／候補者／面接官／採用担当者」の表記を「ミーティング／ゲスト／参加者／主催者」に統一 | 「このツールは採用ツールではなく汎用の時間調整ツール」という指摘 |
 
 ---
 
@@ -26,26 +28,9 @@
 | 画面 | ERB ＋ Hotwire（Turbo / Stimulus） | フロントとバックを分けないため、9時間の制約下で画面数を確保できる |
 | テスト | Minitest（Rails標準） | 追加gemなしで書き始められる |
 
-### 開始時刻の刻みと所要時間
+### 開始時刻の刻みと所要時間・タイムゾーンの規約
 
-**固定値を持たない。**（H2-01）
-
-| 項目 | 方式 |
-|---|---|
-| 開始時刻 | `<input type="time" step="300">`（5分刻み） |
-| 所要時間 | 数値入力（分）＋ プリセット 15／30／45／60／90分 |
-
-**刻みを5分にすれば、10分刻みも15分刻みも30分刻みもすべて表現できる。** 設定テーブル・編集画面・初期値の管理を作らずに柔軟性が得られる。
-
-**`AvailabilityChecker` は刻みの概念を持たない。** 開始時刻と終了時刻を受け取るだけなので、影響は UI の入力方式と `WeeklySlotFinder::STEP` の定数に限られる。
-
-### タイムゾーンの規約
-
-Active RecordはDBにUTCで保存し、`config.time_zone = "Tokyo"` で表示・入力を変換する。**日程調整アプリではここが最大のバグ源になる**ため、以下を規約として固定する。
-
-- 現在時刻は `Time.current` のみ。`Time.now` は禁止
-- 文字列からの生成は `Time.zone.parse` のみ。`Time.parse` は禁止
-- 比較・保存はすべて `ActiveSupport::TimeWithZone` で統一
+**→ 仕様書§4.2・§4.5に記載（実装済み）。** 本紙は仕様書の実装詳細を補うためのものであり、規約自体を重複して書かない。**影響範囲だけ補足する**：`AvailabilityChecker` は刻みの概念を持たず開始・終了時刻を受け取るだけなので、開始時刻の自由化による影響は UI の入力方式（画面①b）と `WeeklySlotFinder::STEP` 定数に限られる。
 
 ---
 
@@ -132,7 +117,7 @@ end
   end
 ```
 
-**allow は狭める方向、block は広げる方向にのみ働く。** 個人設定でテナントの制限を緩められない。「全社で土曜は面接しない」と決めたら、個人設定で土曜を開けることはできない。
+**allow は狭める方向、block は広げる方向にのみ働く。** 個人設定でテナントの制限を緩められない。「全社で土曜はミーティングを入れない」と決めたら、個人設定で土曜を開けることはできない。
 
 | 例 | 結果 |
 |---|---|
@@ -145,7 +130,7 @@ end
 
 `既存.start_at < 要求end AND 既存.end_at > 要求start` で判定し、等号を含めない。これにより**隣接する予定を「空き」と判定する。**
 
-10:00-11:00 の予定がある人に 11:00-12:00 を入れる場合、`既存.end_at(11:00) > 要求start(11:00)` が偽になるため空きになる。**仮定A-8（面接前後のバッファなし）と1対1で対応している。** バッファが必要になれば、この比較に定数を加算するだけで済む。
+10:00-11:00 の予定がある人に 11:00-12:00 を入れる場合、`既存.end_at(11:00) > 要求start(11:00)` が偽になるため空きになる。**仮定A-8（ミーティング前後のバッファなし）と1対1で対応している。** バッファが必要になれば、この比較に定数を加算するだけで済む。
 
 ### A-2-3. 週カレンダーの空き枠算出
 
@@ -186,6 +171,13 @@ end
 
 **`AvailabilityChecker` には一切手を入れていない。** 区間を固定してメンバーを回すか、メンバーを固定して区間を回すかの違いに過ぎない。判定を単一クラスに閉じ込めた設計の効果がここに出る。
 
+**実装では、上の骨子から以下を追加している。**
+
+- 営業時間外・営業日外の描画に日ごとの営業時間が要るため、`slots` を `Day`（`date, open_from, open_to, slots, free_windows, near_windows`）に構造化して返す
+- 連続する空き開始（`STEP` 差以内）を1本の帯にまとめる `merge_windows`。カレンダー表示は帯単位で行い、帯の中から開始時刻を選ばせる（仕様書§6.6）
+- **「あと1人で空き」（実装段階の追加。仕様書§6.4・§6.6）**：`checker.all_available?` の代わりに `checker.call` を使い、不可の人数がちょうど1名の区間を `near_windows` として別途拾う。同じ人がブロックし続ける区間だけを1本の帯にまとめる `merge_near_windows` を追加（`blocking_user` が変わったら帯を区切る）
+- `tenant_rules` は呼び出し側で1度だけ読み込んで `AvailabilityChecker.new` に注入する（A-2-4のN+1対策と同じ理由）
+
 ### A-2-4. N+1 と走査量
 
 週5日 × 営業8時間 × 5分刻み ＝ **1日あたり最大96区間、週で約480区間**。これをメンバー数分判定する。
@@ -193,7 +185,7 @@ end
 **区間ごとにDBを叩くと480回×人数のクエリが飛ぶ。** 必ず事前読み込みしたうえで Ruby 側で判定すること。
 
 ```ruby
-users = User.where(id: ids, interviewer: true)
+users = User.where(id: ids, participant: true)
             .includes(:availability_rules)
             .preload(calendar_events: -> { where(start_at: week_range) })
 ```
@@ -225,44 +217,63 @@ users = User.where(id: ids, interviewer: true)
 
 3〜6は同じ式で処理されるが、**符号の誤りが最も出やすい箇所**のため個別にテストする。12〜14は BR-12（合成規則）の検証で、**allow と block で向きが逆**という設計を守れているかを確認する。
 
+**未着手のテスト（判明している穴）**：「あと1人で空き」（`near_windows`／A-2-3で追加）には、この一覧の時点で単体テストが無い。実装段階の追加機能でありテストが追いついていない。次に着手する場合は「不可がちょうど1名の区間が `near_windows` に入る」「不可が2名以上なら入らない」「ブロック要因の人が変わったら帯を分ける」の3点を境界条件として追加する。
+
 ## A-3. 排他制御
 
-### SQLite3（今回の採用構成）
+### SQLite3（今回の採用構成・実装済み）
 
 SQLiteは書き込みトランザクションを直列化する。トランザクション開始時に書き込みロックを取得したうえで「再判定 → 書き込み」を行えば、その間に他の書き込みが割り込むことはない。
 
 ```ruby
-def create
-  ActiveRecord::Base.transaction(isolation: :immediate) do
-    users   = User.where(id: params[:user_ids], interviewer: true).order(:id)
-                  .includes(:availability_rules)
-                  .preload(calendar_events: -> { where(start_at: day_range) })
-    results = AvailabilityChecker.new(start_at:, end_at:).call(users)
-    busy    = results.reject(&:available)
+# app/controllers/meetings_controller.rb（実装コードそのまま）
+def confirm_booking
+  return false unless @meeting.valid?(:create) # 過去日時・必須項目・区間はここで弾く
+
+  ActiveRecord::Base.transaction do
+    users = User.where(id: @user_ids, participant: true)
+                .includes(:availability_rules, :calendar_events)
+                .order(:id)
+                .to_a
+
+    tenant_rules = AvailabilityRule.where(user_id: nil).to_a
+    results = AvailabilityChecker
+              .new(start_at: @meeting.start_at, end_at: @meeting.end_at, tenant_rules: tenant_rules)
+              .call(users)
+    busy = results.reject(&:available)
 
     if busy.any?
-      @error = "#{busy.map { _1.user.name }.join('・')} さんの予定が埋まりました"
+      @booking_error = "#{busy.map { |r| r.user.name }.join('・')} さんの予定が埋まりました。枠を選び直してください。"
       raise ActiveRecord::Rollback
     end
 
-    interview = Interview.create!(interview_params.merge(created_by: current_user))
+    @meeting.save!
     users.each do |user|
-      InterviewAttendee.create!(interview:, user:)
-      CalendarEvent.create!(
-        user:, interview:, source: "app",
-        title: "面接：#{interview.candidate_name}様",   # BR-11：固定フォーマット
-        start_at:, end_at:, all_day: false
+      @meeting.meeting_attendees.create!(user: user)
+      @meeting.calendar_events.create!(
+        user: user, source: "app", all_day: false,
+        title: @meeting.calendar_title, # BR-11：ミーティング：{ゲスト名}様（編集不可）
+        start_at: @meeting.start_at, end_at: @meeting.end_at
       )
     end
+    true
   end
+rescue ActiveRecord::RecordInvalid
+  false
 end
 ```
 
-`isolation: :immediate` は `BEGIN IMMEDIATE` に相当し、開始時点で書き込みロックを取る。**Rails 8.1のSQLite3アダプタでの挙動を実装時に確認する。** 対応していない場合は `connection.execute("BEGIN IMMEDIATE")` を直接使う。
+**`isolation: :immediate` は使っていない（検証済みの結論）。** 実装時に試したところ、Rails 8.1 の SQLite3 アダプタは `transaction(isolation: :immediate)` を呼ぶと `TransactionIsolationError` を送出し、**そもそもこの引数を受け付けない。** 一方でこのアダプタは仕様として**全トランザクションを内部的に `BEGIN IMMEDIATE` で開始する**ため、素の `transaction do ... end` を使うだけで当初の目的（トランザクション開始時点での書き込みロック取得）は達成されている。`connection.execute("BEGIN IMMEDIATE")` を直接発行する代替案も検討したが、上記の理由で不要だった。
 
 **ここで再判定に使うのは、週カレンダーの表示に使ったのと同じ `AvailabilityChecker`。** 主動線が「メンバー → 週カレンダー → 空き枠クリック」に変わっても、確定処理は変わらない。**空き枠として表示してから予約ボタンを押すまでの時間差**が問題であり、その構造は動線に依存しないためである。
 
-**過去日時のバリデーション**：空き判定は「予定と重なるか」しか見ておらず、過去日を指定すると全員空きと出る。`Interview` に `validates :start_at, comparison: { greater_than: -> { Time.current } }` 相当の検証を入れること。**未実装のため実装時に確認する。**
+**過去日時のバリデーション（実装済み）**：空き判定は「予定と重なるか」しか見ておらず、過去日を指定すると全員空きと出る。`app/models/meeting.rb` に以下を実装し、`confirm_booking` の冒頭 `@meeting.valid?(:create)` で弾く。
+
+```ruby
+validates :start_at, comparison: { greater_than: -> { Time.current },
+                                   message: "は現在より後の日時にしてください" },
+          on: :create, if: -> { start_at.present? }
+```
 
 ### PostgreSQLへ移行する場合
 
@@ -296,104 +307,35 @@ SQL
 
 ## A-4. ルーティング
 
-**主動線の入れ替え（H2-05）を反映済み。**
+**→ 仕様書§7に実装済み／未実装の内訳を記載。** ここでは補足のみ。
 
 ```ruby
-# config/routes.rb
-Rails.application.routes.draw do
-  root "interviews#new"
+# app/controllers/meetings_controller.rb（実装コードそのまま。private部分を抜粋）
+def assign_params
+  @user_ids = selected_user_ids
+  @duration = duration_param
+  @week_of  = week_of_param
+end
 
-  get  "login", to: "sessions#new"
-  post "login", to: "sessions#create"
+def week_of_param
+  (parse_time(params[:week_of]) || Time.current).beginning_of_week
+end
 
-  resources :interviews, only: %i[index new create show] do
-    collection do
-      get :calendar   # Turbo Frame で選択メンバーの週カレンダーを返す
-    end
-  end
+def parse_time(raw)
+  return if raw.blank?
 
-  resources :users
-  resources :calendar_connections, only: %i[index]
-  resource  :availability_rules,   only: %i[show update]
+  Time.zone.parse(raw)
+rescue ArgumentError, Date::Error
+  nil
 end
 ```
 
-| メソッド | パス | 用途 |
-|---|---|---|
-| GET | `/login` | 操作者選択 |
-| POST | `/login` | セッションに `user_id` を保持 |
-| GET | `/interviews/new` | 面接を組む（面接官選択＋週カレンダー） |
-| GET | `/interviews/calendar?user_ids[]=&week_of=&duration=` | **選択メンバーの週カレンダー（Turbo Frame）** |
-| POST | `/interviews` | 予約確定（再判定つき）。競合時 422 |
-| GET | `/interviews` `/interviews/:id` | 一覧・詳細 |
-| — | `/users` 一式 | メンバー管理 |
-| GET | `/calendar_connections` | カレンダー連携状態 |
-| GET/PATCH | `/availability_rules` | 営業時間・予約不可時間 |
-
-`calendar` は `_week_grid.html.erb` パーシャルを返す。**空き枠だけでなく、埋まっている区間も「誰の何の予定か」を付けて渡す。** 表示側で消すかどうかを判断できるようにするためである。
-
-### パラメータの扱い
-
-```ruby
-def calendar
-  @users    = User.where(id: params[:user_ids], interviewer: true)
-                  .includes(:availability_rules)
-                  .preload(calendar_events: -> { where(start_at: week_range) })
-  @duration = params[:duration].to_i
-  @week_of  = Time.zone.parse(params[:week_of]).beginning_of_week
-  @slots    = WeeklySlotFinder.new(users: @users, week_of: @week_of,
-                                   duration_min: @duration).call
-  render partial: "week_grid"
-end
-```
-
-**`Time.zone.parse` を使うこと**（A-1のタイムゾーン規約）。`params[:week_of]` は文字列で届くため、`Time.parse` を使うとサーバーのタイムゾーンで解釈されて日がずれる。
+**`Time.zone.parse` を使うこと**（A-1／仕様書§4.5のタイムゾーン規約）。`params[:week_of]` は文字列で届くため、`Time.parse` を使うとサーバーのタイムゾーンで解釈されて日がずれる。**壊れた文字列は `rescue` で今週にフォールバックし、落ちない。**
 
 ---
 
 ## A-5. 簡易ログイン
 
-**パスワード認証を行わない。操作者を選択してセッションに保持するだけ。**
+**→ 仕様書§6.2に実装コード・理由とも記載済み（実装済み）。本紙は重複させない。**
 
-```ruby
-# app/controllers/sessions_controller.rb
-class SessionsController < ApplicationController
-  skip_before_action :require_operator, only: %i[new create]
-
-  def new
-    @operators = User.where(operator: true).order(:name)
-  end
-
-  def create
-    user = User.find_by(id: params[:user_id], operator: true)
-    if user
-      session[:user_id] = user.id
-      redirect_to root_path
-    else
-      redirect_to login_path, alert: "操作者を選択してください"
-    end
-  end
-end
-```
-
-```ruby
-# app/controllers/application_controller.rb
-class ApplicationController < ActionController::Base
-  before_action :require_operator
-  helper_method :current_user
-
-  private
-
-  def current_user
-    @current_user ||= User.find_by(id: session[:user_id], operator: true)
-  end
-
-  def require_operator
-    redirect_to login_path unless current_user
-  end
-end
-```
-
-**`find_by` に `operator: true` を付けている理由**：セッションのIDだけで引くと、**後から `operator` を false に変更されたユーザーがログインしたままになる。** 毎回確認することで、権限を落とした瞬間から操作できなくなる。
-
-**セキュリティ上の位置づけ**：`user_id` を選ぶだけなので**他人になりすませる。** 社内ツールであり本番データを扱わないため Phase 1 では許容する。Phase 2 で認証・権限制御（F-52）として実装する。**明示的な判断であり、実装漏れではない。**
+補足のみ：`sessions_controller.rb` は `switch=1` パラメータで「ログイン済みでも選択フォームを出す」切替に対応している（仕様書§6.2のコード例より実装が1点進んでいる）。トップバーの「切り替える」リンク（仕様書§6.8のUI）がここに繋がる。
