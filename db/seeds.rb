@@ -6,7 +6,7 @@
 # 今週〜来週にデータが入る。
 
 # --- 冪等化：FK 依存の逆順に全消し ---------------------------------------
-[MeetingAttendee, CalendarEvent, Meeting, AvailabilityRule, User].each(&:delete_all)
+[ MeetingAttendee, CalendarEvent, Meeting, AvailabilityRule, User ].each(&:delete_all)
 
 # --- メンバー ----------------------------------------------------------
 # 主催者2名（うち1名はミーティングにも出る兼任）

@@ -9,6 +9,6 @@ class CreateMeetingAttendees < ActiveRecord::Migration[8.1]
     end
 
     # BR-10（同一メンバーの重複指定禁止）を DB 側で担保（仕様書 §3.2）
-    add_index :meeting_attendees, [:meeting_id, :user_id], unique: true
+    add_index :meeting_attendees, [ :meeting_id, :user_id ], unique: true
   end
 end

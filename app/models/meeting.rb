@@ -14,6 +14,11 @@ class Meeting < ApplicationRecord
   validates :location_type, inclusion: { in: LOCATION_TYPES }
   validates :start_at, :end_at, presence: true
   validate  :end_after_start
+  # http(s) 以外（javascript: 等）を許すと、詳細画面の link_to 経由で
+  # 保存型XSSになる（Brakeman LinkToHref で検出）。スキームを固定して防ぐ。
+  validates :meet_url, format: { with: %r{\Ahttps?://\S+\z}i,
+                                 message: "はhttp(s)から始まるURLを指定してください" },
+            allow_blank: true
   # §9.3-1：空き判定は「予定と重なるか」しか見ないため、過去日を指定すると
   # 全員空きと出てしまう。作成時に開始が未来であることを別途担保する。
   validates :start_at, comparison: { greater_than: -> { Time.current },

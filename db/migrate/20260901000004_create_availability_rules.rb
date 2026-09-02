@@ -14,6 +14,6 @@ class CreateAvailabilityRules < ActiveRecord::Migration[8.1]
     end
 
     # ルール引き当て（仕様書 §3.2）
-    add_index :availability_rules, [:user_id, :day_of_week]
+    add_index :availability_rules, [ :user_id, :day_of_week ]
   end
 end

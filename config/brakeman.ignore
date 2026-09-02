@@ -1,0 +1,40 @@
+{
+  "ignored_warnings": [
+    {
+      "warning_type": "Cross-Site Scripting",
+      "warning_code": 4,
+      "fingerprint": "f360d87ece66e8ebcff15af8181297bfce203c0eb5ed1e76742de64086040e4b",
+      "check_name": "LinkToHref",
+      "message": "Potentially unsafe model attribute in `link_to` href",
+      "file": "app/views/meetings/show.html.erb",
+      "line": 15,
+      "link": "https://brakemanscanner.org/docs/warning_types/link_to_href",
+      "code": "link_to(Meeting.includes(:attendees, :calendar_events => :user).find(params[:id]).meet_url, Meeting.includes(:attendees, :calendar_events => :user).find(params[:id]).meet_url)",
+      "render_path": [
+        {
+          "type": "controller",
+          "class": "MeetingsController",
+          "method": "show",
+          "line": 23,
+          "file": "app/controllers/meetings_controller.rb",
+          "rendered": {
+            "name": "meetings/show",
+            "file": "app/views/meetings/show.html.erb"
+          }
+        }
+      ],
+      "location": {
+        "type": "template",
+        "template": "meetings/show"
+      },
+      "user_input": "Meeting.includes(:attendees, :calendar_events => :user).find(params[:id]).meet_url",
+      "confidence": "Weak",
+      "cwe_id": [
+        79
+      ],
+      "note": "meet_url は Meeting モデルで `\\Ahttps?://\\S+\\z` の形式バリデーションを課しており（app/models/meeting.rb）、javascript: 等の危険なスキームは保存できない。Brakeman は静的解析でこのバリデーションの効果まで追えないため、weak confidence のパターン検出として残る。2026-09-02 レビュー済み。"
+    }
+  ],
+  "updated": "2026-09-02 03:00:00 +0000",
+  "brakeman_version": "8.0.6"
+}

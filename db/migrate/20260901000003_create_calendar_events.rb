@@ -17,6 +17,6 @@ class CreateCalendarEvents < ActiveRecord::Migration[8.1]
 
     # 空き判定の主クエリ:
     #   WHERE user_id IN (...) AND start_at < ? AND end_at > ?
-    add_index :calendar_events, [:user_id, :start_at]
+    add_index :calendar_events, [ :user_id, :start_at ]
   end
 end
