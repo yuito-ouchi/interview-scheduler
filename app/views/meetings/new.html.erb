@@ -1,0 +1,57 @@
+<% content_for :title, "ミーティングを組む" %>
+
+<main class="meetings-new">
+  <h1>ミーティングを組む</h1>
+
+  <% if @participants.empty? %>
+    <p class="hint">
+      参加者（<code>participant</code>）が登録されていません。
+      メンバー登録画面は後の段階で実装します。いまは <code>bin/rails db:seed</code> で投入できます。
+    </p>
+  <% else %>
+    <div class="meetings-layout">
+      <div class="meetings-layout__main">
+        <%= render "week_grid" %>
+        <%= render "booking_form" %>
+      </div>
+
+      <aside class="meetings-layout__sidebar">
+        <%= form_with url: calendar_meetings_path, method: :get, id: "slot_form",
+                      data: { turbo_frame: "week_calendar" }, class: "search-panel card" do |form| %>
+          <div class="search-panel__section">
+            <h2>参加者（1名以上）</h2>
+            <p class="search-panel__hint">チェックすると即座にカレンダーが更新されます</p>
+            <div class="member-panel__list">
+              <% @participants.each do |user| %>
+                <label class="member-panel__item">
+                  <%= check_box_tag "user_ids[]", user.id, @user_ids.include?(user.id),
+                        id: "user_ids_#{user.id}", onchange: "this.form.requestSubmit()" %>
+                  <%= user.name %>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="search-panel__section">
+            <%= label_tag :duration, "所要時間（分）", for: "duration_search" %>
+            <%= number_field_tag :duration, @duration, min: 5, step: 1,
+                  list: "duration_presets_search", id: "duration_search",
+                  class: "duration-input", onchange: "this.form.requestSubmit()" %>
+            <datalist id="duration_presets_search">
+              <option value="15"></option>
+              <option value="30"></option>
+              <option value="45"></option>
+              <option value="60"></option>
+              <option value="90"></option>
+            </datalist>
+          </div>
+
+          <%# 週送りはカレンダー側のリンクで行う。ここでは初期表示週のみ引き継ぐ %>
+          <%= hidden_field_tag :week_of, @week_of.to_date.iso8601 %>
+
+          <%= form.submit "更新" %>
+        <% end %>
+      </aside>
+    </div>
+  <% end %>
+</main>

@@ -10,7 +10,7 @@ class CreateCalendarEvents < ActiveRecord::Migration[8.1]
       t.boolean  :all_day,  null: false, default: false
       t.string   :source,   null: false                # external / app
       # source=app のときのみ値が入る。連動削除用（Phase 2）
-      t.references :interview, null: true, foreign_key: true
+      t.references :meeting, null: true, foreign_key: true
 
       t.timestamps
     end

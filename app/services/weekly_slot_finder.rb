@@ -11,7 +11,7 @@
 class WeeklySlotFinder
   STEP = 5.minutes # BR-08：開始時刻は5分刻み
 
-  Day = Struct.new(:date, :open_from, :open_to, :slots, :free_windows, keyword_init: true) do
+  Day = Struct.new(:date, :open_from, :open_to, :slots, :free_windows, :near_windows, keyword_init: true) do
     # 営業日でない（テナント allow がその曜日に無い）
     def closed? = open_from.nil?
   end
@@ -34,24 +34,37 @@ class WeeklySlotFinder
 
   def build_day(date)
     open_from, open_to = business_hours(date)
-    return Day.new(date: date, slots: [], free_windows: []) if open_from.nil?
+    return Day.new(date: date, slots: [], free_windows: [], near_windows: []) if open_from.nil?
 
-    slots = scan(open_from, open_to)
+    slots, near_slots = scan(open_from, open_to)
     Day.new(date: date, open_from: open_from, open_to: open_to,
-            slots: slots, free_windows: merge_windows(slots))
+            slots: slots, free_windows: merge_windows(slots),
+            near_windows: merge_near_windows(near_slots))
   end
 
-  # 営業時間内を STEP 刻みで走査し、全員空きの区間だけ拾う（A-2-3 の骨子ループ）。
+  # 営業時間内を STEP 刻みで走査し、全員空きの区間を拾う（A-2-3 の骨子ループ）。
+  # ついでに「あと1人を除けば空く」区間も拾う（脳内で「この人抜こう」を試す
+  # 前に、そもそも抜く価値があるか見えた方がいい、というUX要望から追加）。
+  # 判定そのものは AvailabilityChecker#call のまま。誰が不可かを見るために
+  # all_available? の代わりに call を使うが、判定ロジックには一切手を入れない。
   def scan(open_from, open_to)
-    found  = []
+    found = []
+    near  = []
     cursor = open_from
     while cursor + @duration <= open_to
       checker = AvailabilityChecker.new(start_at: cursor, end_at: cursor + @duration,
                                         tenant_rules: @tenant_rules)
-      found << { start_at: cursor, end_at: cursor + @duration } if checker.all_available?(@users)
+      results = checker.call(@users)
+      busy    = results.reject(&:available)
+
+      case busy.size
+      when 0 then found << { start_at: cursor, end_at: cursor + @duration }
+      when 1 then near  << { start_at: cursor, end_at: cursor + @duration, blocking_user: busy.first.user }
+      end
+
       cursor += STEP
     end
-    found
+    [ found, near ]
   end
 
   # 連続する空き開始（隣同士が STEP 差）を1本の空き帯にまとめる。
@@ -64,6 +77,22 @@ class WeeklySlotFinder
         last[:end_at]     = slot[:end_at]
       else
         windows << { start_at: slot[:start_at], last_start: slot[:start_at], end_at: slot[:end_at] }
+      end
+    end
+  end
+
+  # near も同様に連続をまとめるが、ブロック要因の人が変わったら別の帯にする
+  # （「あと1人＝伊藤」の帯と「あと1人＝佐藤」の帯を混ぜて見せない）。
+  def merge_near_windows(slots)
+    slots.each_with_object([]) do |slot, windows|
+      last = windows.last
+      if last && last[:blocking_user] == slot[:blocking_user] &&
+         (slot[:start_at] - last[:last_start] <= STEP.to_i)
+        last[:last_start] = slot[:start_at]
+        last[:end_at]     = slot[:end_at]
+      else
+        windows << { start_at: slot[:start_at], last_start: slot[:start_at],
+                      end_at: slot[:end_at], blocking_user: slot[:blocking_user] }
       end
     end
   end

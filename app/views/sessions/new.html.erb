@@ -1,32 +1,32 @@
 <% content_for :title, "操作者を選択" %>
 
 <main class="session-new">
-  <h1>操作者を選択</h1>
+  <h1>ミーティング調整</h1>
 
-  <% if flash[:alert] %>
-    <p class="flash-alert" role="alert"><%= flash[:alert] %></p>
-  <% end %>
+  <div class="card">
+    <% if flash[:alert] %>
+      <p class="flash-alert" role="alert"><%= flash[:alert] %></p>
+    <% end %>
 
-  <% if current_user && !@show_picker %>
-    <p><strong><%= current_user.name %></strong> として操作中です。</p>
-    <p><%= link_to "操作者を切り替える", login_path(switch: 1) %></p>
+    <% if current_user && !@show_picker %>
+      <p><strong><%= current_user.name %></strong> として操作中です。</p>
+      <p><%= link_to "操作者を切り替える", login_path(switch: 1) %></p>
 
-  <% elsif @operators.empty? %>
-    <p>操作できるメンバー（<code>operator</code>）が登録されていません。</p>
-    <p><code>bin/rails db:seed</code> でダミーデータを投入してください。</p>
+    <% elsif @operators.empty? %>
+      <p>操作できるメンバー（<code>operator</code>）が登録されていません。</p>
+      <p><code>bin/rails db:seed</code> でダミーデータを投入してください。</p>
 
-  <% else %>
-    <p>パスワード認証はありません。操作する担当者を選んでください。</p>
+    <% else %>
+      <p>パスワード認証はありません。操作する担当者を選んでください。</p>
 
-    <%= form_with url: login_path, method: :post do |form| %>
-      <p>
-        <%= label_tag :user_id, "操作者" %><br>
+      <%= form_with url: login_path, method: :post do |form| %>
+        <%= label_tag :user_id, "操作者" %>
         <%= select_tag :user_id,
               options_from_collection_for_select(@operators, :id, :name, current_user&.id),
               include_blank: "— 選択してください —" %>
-      </p>
 
-      <%= form.submit "この操作者で開始" %>
+        <%= form.submit "この操作者で開始" %>
+      <% end %>
     <% end %>
-  <% end %>
+  </div>
 </main>

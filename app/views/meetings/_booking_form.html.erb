@@ -1,0 +1,79 @@
+<%= turbo_frame_tag "booking_form" do %>
+  <% if @booking %>
+    <section class="booking card">
+      <h2>予約フォーム</h2>
+
+      <p class="booking__slot">
+        <%= @meeting.start_at.strftime("%Y/%m/%d (%a)") %>
+        ／ 参加者：<%= @selected_participants.map(&:name).join("・") %>
+      </p>
+
+      <% if @booking_error %>
+        <p class="flash-alert" role="alert"><%= @booking_error %></p>
+      <% end %>
+
+      <%= form_with model: @meeting, url: meetings_path, method: :post,
+                    data: { turbo_frame: "_top" }, class: "booking__form" do |f| %>
+        <% if @meeting.errors.any? %>
+          <ul class="errors">
+            <% @meeting.errors.full_messages.each do |msg| %>
+              <li><%= msg %></li>
+            <% end %>
+          </ul>
+        <% end %>
+
+        <%# ミーティング日と参加者は画面①から引き継ぐ（§6.5 画面①b）。編集不可＝hidden。
+            開始時刻・所要時間は BR-08（開始5分刻み／所要は分単位で自由。プリセットは
+            入力補助であり制約ではない）に合わせ、ここで自由に調整できるようにする。 %>
+        <%= hidden_field_tag :date, @meeting.start_at.to_date.iso8601 %>
+        <%= hidden_field_tag :week_of, @week_of.to_date.iso8601 %>
+        <% @selected_participants.each do |user| %>
+          <%= hidden_field_tag "user_ids[]", user.id %>
+        <% end %>
+
+        <p>
+          <%= label_tag :start_time, "開始時刻", for: "start_time_booking" %>
+          <%= time_field_tag :start_time, @meeting.start_at.strftime("%H:%M"), step: 300,
+                required: true, id: "start_time_booking" %>
+        </p>
+        <p>
+          <%= label_tag :duration, "所要時間（分）", for: "duration_booking" %>
+          <%= number_field_tag :duration, @duration, min: 5, step: 1,
+                list: "duration_presets_booking", required: true,
+                id: "duration_booking", class: "duration-input" %>
+          <datalist id="duration_presets_booking">
+            <option value="15"></option>
+            <option value="30"></option>
+            <option value="45"></option>
+            <option value="60"></option>
+            <option value="90"></option>
+          </datalist>
+        </p>
+
+        <p>
+          <%= f.label :guest_name, "ゲスト名" %>
+          <span class="input-suffix">
+            <%= f.text_field :guest_name, required: true %>
+            <span>様</span>
+          </span>
+        </p>
+        <p>
+          <%= f.label :location_type, "実施方法" %><br>
+          <%= f.select :location_type, [ [ "オンライン", "online" ], [ "対面", "onsite" ] ] %>
+        </p>
+        <p>
+          <%= f.label :location_text, "場所（任意）" %><br>
+          <%= f.text_field :location_text %>
+        </p>
+        <p>
+          <%= f.label :meet_url, "会議URL（任意）" %><br>
+          <%= f.url_field :meet_url %>
+        </p>
+
+        <%= f.submit "予約する" %>
+      <% end %>
+    </section>
+  <% else %>
+    <p class="hint">カレンダーの空き枠（時刻リンク）を選ぶと、ここに予約フォームが開きます。</p>
+  <% end %>
+<% end %>

@@ -5,7 +5,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   setup do
     @operator     = User.create!(name: "採用 花子", email: "op1@example.com", operator: true)
     @operator2    = User.create!(name: "調整 太郎", email: "op2@example.com", operator: true)
-    @interviewer  = User.create!(name: "面接 次郎", email: "iv@example.com", operator: false, interviewer: true)
+    @participant  = User.create!(name: "参加 次郎", email: "iv@example.com", operator: false, participant: true)
   end
 
   test "new は operator だけを選択肢に出す" do
@@ -13,7 +13,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "select#user_id option", text: @operator.name
     assert_select "select#user_id option", text: @operator2.name
-    assert_select "select#user_id option", text: @interviewer.name, count: 0
+    assert_select "select#user_id option", text: @participant.name, count: 0
   end
 
   test "create は operator ならセッションに乗せて root へ" do
@@ -23,7 +23,7 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
   end
 
   test "create は operator でない user_id を弾く" do
-    post login_path, params: { user_id: @interviewer.id }
+    post login_path, params: { user_id: @participant.id }
     assert_redirected_to login_path
     assert_nil session[:user_id]
     assert_equal "操作者を選択してください", flash[:alert]
@@ -38,14 +38,14 @@ class SessionsControllerTest < ActionDispatch::IntegrationTest
     assert_nil session[:user_id]
   end
 
-  test "未ログインで保護ページ（root = interviews#new）を開くと login へ飛ぶ" do
+  test "未ログインで保護ページ（root = meetings#new）を開くと login へ飛ぶ" do
     get root_path
     assert_redirected_to login_path
   end
 
   test "ログイン後は保護ページを開ける" do
     post login_path, params: { user_id: @operator.id }
-    get new_interview_path
+    get new_meeting_path
     assert_response :success
   end
 

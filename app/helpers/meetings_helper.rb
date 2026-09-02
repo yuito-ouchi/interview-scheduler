@@ -1,4 +1,4 @@
-module InterviewsHelper
+module MeetingsHelper
   # 週カレンダーの縦スケール。1分あたりのピクセル数。
   PX_PER_MIN = 0.8
   WDAY_JA = %w[日 月 火 水 木 金 土].freeze
@@ -32,6 +32,29 @@ module InterviewsHelper
           .map { |e| { name: user.name, title: e.title, all_day: e.all_day?,
                        start_at: e.start_at, end_at: e.end_at } }
     end
+  end
+
+  # 複数人の予定を1つのカレンダーに重ねて表示するため（変えてはいけない設計判断・
+  # CLAUDE.md）、同じ時間帯に別々の人の「予定あり」が重なることがある。
+  # 時刻だけで絶対配置すると完全に重なって読めなくなるので、区間彩色の貪欲法で
+  # 列を割り当て、横に並べて見せる。件数が少ない前提の簡易実装（全列を１クラスタ
+  # 扱いにする分、まれに必要以上に幅を詰めることがあるが、実害はない）。
+  def layout_busy(events)
+    column_ends = []
+    placed = events.sort_by { |e| e[:start_at] }.map do |ev|
+      col = column_ends.find_index { |end_at| end_at <= ev[:start_at] } || column_ends.size
+      column_ends[col] = ev[:end_at]
+      ev.merge(col: col)
+    end
+    placed.map { |ev| ev.merge(col_count: column_ends.size) }
+  end
+
+  # layout_busy が振った列番号から、横方向の位置とサイズを CSS で返す。
+  def column_style(col, col_count)
+    return "" if col_count <= 1
+
+    width = 100.0 / col_count
+    "left:calc(#{(width * col).round(3)}% + 2px);right:auto;width:calc(#{width.round(3)}% - 4px)"
   end
 
   # その日の予約不可時間（テナント block ∪ 個人 block ／ BR-12）。

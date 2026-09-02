@@ -18,7 +18,7 @@ class AvailabilityCheckerTest < ActiveSupport::TestCase
       AvailabilityRule.create!(user_id: nil, day_of_week: wday,
                                start_time: "12:00", end_time: "13:00", rule_type: "block", label: "昼休み")
     end
-    @user = User.create!(name: "面接 太郎", email: "ivr@example.com", interviewer: true)
+    @user = User.create!(name: "参加 太郎", email: "ivr@example.com", participant: true)
   end
 
   # --- ヘルパ ---------------------------------------------------------------
@@ -169,7 +169,7 @@ class AvailabilityCheckerTest < ActiveSupport::TestCase
   end
 
   test "16. 2名選択時、片方だけ埋まっている区間は all_available? が false" do
-    busy = User.create!(name: "予定 花子", email: "busy@example.com", interviewer: true)
+    busy = User.create!(name: "予定 花子", email: "busy@example.com", participant: true)
     busy.calendar_events.create!(source: "external", title: "他案件",
                                  start_at: Time.zone.parse("#{BASE_DAY} 14:30"),
                                  end_at: Time.zone.parse("#{BASE_DAY} 15:30"))

@@ -13,10 +13,10 @@ Rails.application.routes.draw do
   get  "login", to: "sessions#new"
   post "login", to: "sessions#create"
 
-  # 画面①（面接を組む）＋ 予約フォーム・確定。一覧（index）は次段階
-  resources :interviews, only: %i[new create show] do
+  # 画面①（ミーティングを組む）＋ 予約フォーム・確定。一覧（index）は次段階
+  resources :meetings, only: %i[new create show] do
     get :calendar, on: :collection # Turbo Frame で選択メンバーの週カレンダーを返す
   end
 
-  root "interviews#new"
+  root "meetings#new"
 end

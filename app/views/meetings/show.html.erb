@@ -1,0 +1,28 @@
+<% content_for :title, "予約詳細" %>
+
+<main class="meeting-show">
+  <h1>予約完了</h1>
+
+  <div class="card">
+    <span class="meeting-show__badge">✓ 予約を確定しました</span>
+
+    <dl>
+      <dt>ゲスト</dt><dd><%= @meeting.guest_name %> 様</dd>
+      <dt>日時</dt>
+      <dd><%= @meeting.start_at.strftime("%Y/%m/%d (%a) %-H:%M") %>–<%= @meeting.end_at.strftime("%-H:%M") %></dd>
+      <dt>実施方法</dt><dd><%= @meeting.location_type == "online" ? "オンライン" : "対面" %></dd>
+      <% if @meeting.location_text.present? %><dt>場所</dt><dd><%= @meeting.location_text %></dd><% end %>
+      <% if @meeting.meet_url.present? %><dt>会議URL</dt><dd><%= link_to @meeting.meet_url, @meeting.meet_url %></dd><% end %>
+      <dt>参加者</dt><dd><%= @meeting.attendees.map(&:name).join("・") %></dd>
+      <dt>登録者</dt><dd><%= @meeting.created_by.name %></dd>
+    </dl>
+
+    <p class="hint">
+      カレンダー上の占有（<code>calendar_events</code> / <code>source: "app"</code>）を
+      <%= @meeting.calendar_events.size %> 件作成しました。
+      次回以降の空き判定にこのミーティングが反映されます。
+    </p>
+
+    <p><%= link_to "続けてミーティングを組む", new_meeting_path, class: "btn" %></p>
+  </div>
+</main>

@@ -27,53 +27,53 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_01_000005) do
     t.boolean "all_day", default: false, null: false
     t.datetime "created_at", null: false
     t.datetime "end_at", null: false
-    t.integer "interview_id"
+    t.integer "meeting_id"
     t.string "source", null: false
     t.datetime "start_at", null: false
     t.string "title", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
-    t.index ["interview_id"], name: "index_calendar_events_on_interview_id"
+    t.index ["meeting_id"], name: "index_calendar_events_on_meeting_id"
     t.index ["user_id", "start_at"], name: "index_calendar_events_on_user_id_and_start_at"
   end
 
-  create_table "interview_attendees", force: :cascade do |t|
+  create_table "meeting_attendees", force: :cascade do |t|
     t.datetime "created_at", null: false
-    t.integer "interview_id", null: false
+    t.integer "meeting_id", null: false
     t.datetime "updated_at", null: false
     t.integer "user_id", null: false
-    t.index ["interview_id", "user_id"], name: "index_interview_attendees_on_interview_id_and_user_id", unique: true
-    t.index ["user_id"], name: "index_interview_attendees_on_user_id"
+    t.index ["meeting_id", "user_id"], name: "index_meeting_attendees_on_meeting_id_and_user_id", unique: true
+    t.index ["user_id"], name: "index_meeting_attendees_on_user_id"
   end
 
-  create_table "interviews", force: :cascade do |t|
-    t.string "candidate_name", null: false
+  create_table "meetings", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.integer "created_by_id", null: false
     t.datetime "end_at", null: false
+    t.string "guest_name", null: false
     t.string "location_text"
     t.string "location_type", null: false
     t.string "meet_url"
     t.datetime "start_at", null: false
     t.datetime "updated_at", null: false
-    t.index ["created_by_id"], name: "index_interviews_on_created_by_id"
-    t.index ["start_at"], name: "index_interviews_on_start_at"
+    t.index ["created_by_id"], name: "index_meetings_on_created_by_id"
+    t.index ["start_at"], name: "index_meetings_on_start_at"
   end
 
   create_table "users", force: :cascade do |t|
     t.datetime "created_at", null: false
     t.string "email", null: false
-    t.boolean "interviewer", default: false, null: false
     t.string "name", null: false
     t.boolean "operator", default: false, null: false
+    t.boolean "participant", default: false, null: false
     t.datetime "updated_at", null: false
     t.index ["email"], name: "index_users_on_email", unique: true
   end
 
   add_foreign_key "availability_rules", "users"
-  add_foreign_key "calendar_events", "interviews"
+  add_foreign_key "calendar_events", "meetings"
   add_foreign_key "calendar_events", "users"
-  add_foreign_key "interview_attendees", "interviews"
-  add_foreign_key "interview_attendees", "users"
-  add_foreign_key "interviews", "users", column: "created_by_id"
+  add_foreign_key "meeting_attendees", "meetings"
+  add_foreign_key "meeting_attendees", "users"
+  add_foreign_key "meetings", "users", column: "created_by_id"
 end

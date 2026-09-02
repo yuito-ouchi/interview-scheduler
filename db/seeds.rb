@@ -6,18 +6,18 @@
 # 今週〜来週にデータが入る。
 
 # --- 冪等化：FK 依存の逆順に全消し ---------------------------------------
-[InterviewAttendee, CalendarEvent, Interview, AvailabilityRule, User].each(&:delete_all)
+[MeetingAttendee, CalendarEvent, Meeting, AvailabilityRule, User].each(&:delete_all)
 
 # --- メンバー ----------------------------------------------------------
-# 採用担当者2名（うち1名は面接にも出る兼任）
-op1 = User.create!(name: "採用 花子", email: "hanako@example.com", operator: true,  interviewer: true)
-op2 = User.create!(name: "調整 太郎", email: "taro@example.com",   operator: true,  interviewer: false)
+# 主催者2名（うち1名はミーティングにも出る兼任）
+op1 = User.create!(name: "採用 花子", email: "hanako@example.com", operator: true,  participant: true)
+op2 = User.create!(name: "調整 太郎", email: "taro@example.com",   operator: true,  participant: false)
 
-# 面接実施者4名
-iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com",    interviewer: true)
-iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com",   interviewer: true)
-iv3 = User.create!(name: "鈴木 三郎", email: "suzuki@example.com", interviewer: true)
-iv4 = User.create!(name: "田中 四郎", email: "tanaka@example.com", interviewer: true)
+# 参加者4名
+iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com",    participant: true)
+iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com",   participant: true)
+iv3 = User.create!(name: "鈴木 三郎", email: "suzuki@example.com", participant: true)
+iv4 = User.create!(name: "田中 四郎", email: "tanaka@example.com", participant: true)
 
 # --- テナント全体の営業時間ルール（user_id: nil）----------------------
 # 平日 10:00-18:00 を allow、12:00-13:00 を block（昼休み）
@@ -43,8 +43,8 @@ end
 #   別紙A A-2-5 のケース番号を右に付す。
 ev.(iv1, "部門定例",   2, "13:00", "14:00")           # case1 隣接（既存終了=要求開始）→ 空き
 ev.(iv1, "1on1",       2, "15:00", "16:00")           # case2 隣接（既存開始=要求終了）→ 空き
-ev.(iv4, "採用会議",   2, "13:30", "14:30")           # case5 前方で部分的に重なる → 不可
-ev.(iv2, "面談",       2, "14:30", "15:30")           # case6 後方で部分的に重なる → 不可
+ev.(iv4, "全体会議",   2, "13:30", "14:30")           # case5 前方で部分的に重なる → 不可
+ev.(iv2, "商談",       2, "14:30", "15:30")           # case6 後方で部分的に重なる → 不可
 ev.(iv3, "電話",       2, "14:00", "14:30")           # case4 要求が既存を完全に含む → 不可
 
 # ▼ 火曜(n=1) は iv1 が終日ふさがる長時間予定。火曜 14:00-15:00 を要求すると
@@ -60,13 +60,13 @@ ev.(op1, "1on1",           3, "11:00", "12:00")       # 今週 木
 ev.(iv2, "チームMTG",      4, "10:00", "12:00")       # 今週 金
 ev.(iv1, "週次",           7, "10:00", "11:00")       # 来週 月
 ev.(iv4, "顧客訪問",       8, "10:00", "11:00")       # 来週 火
-ev.(op1, "面接(他候補)",   9, "15:00", "16:00")       # 来週 水
+ev.(op1, "別件MTG",        9, "15:00", "16:00")       # 来週 水
 ev.(iv2, "部門定例",      10, "13:00", "14:00")       # 来週 木
 ev.(iv3, "作業ブロック",  11, "14:00", "17:00")       # 来週 金
 
 # --- サマリ ---------------------------------------------------------
 puts "seed 完了"
-puts "  users: #{User.count}（operator: #{User.operators.count} / interviewer: #{User.interviewers.count}）"
+puts "  users: #{User.count}（operator: #{User.operators.count} / participant: #{User.participants.count}）"
 puts "  availability_rules: #{AvailabilityRule.count}（allow #{AvailabilityRule.allows.count} / block #{AvailabilityRule.blocks.count}, すべてテナント全体）"
 puts "  calendar_events: #{CalendarEvent.count}（うち終日 #{CalendarEvent.where(all_day: true).count}, すべて external）"
 puts "  今週の月曜 = #{monday}"

@@ -1,15 +1,15 @@
-class InterviewsController < ApplicationController
-  # GET /interviews/new
-  # 面接官選択＋週カレンダー。空き枠リンク（?start_at=...）で来たときは
+class MeetingsController < ApplicationController
+  # GET /meetings/new
+  # 参加者選択＋週カレンダー。空き枠リンク（?start_at=...）で来たときは
   # 予約フォーム（booking_form フレーム）も一緒に組み立てる（§6.6 手順5）。
   def new
     assign_params
-    @interviewers = User.where(interviewer: true).order(:name)
+    @participants = User.where(participant: true).order(:name)
     load_calendar if @user_ids.any?
     prepare_booking if params[:start_at].present?
   end
 
-  # GET /interviews/calendar
+  # GET /meetings/calendar
   # フォーム送信・週送りの受け口。週カレンダー部分だけ差し替える。
   def calendar
     assign_params
@@ -17,19 +17,19 @@ class InterviewsController < ApplicationController
     render partial: "week_grid"
   end
 
-  # GET /interviews/:id
+  # GET /meetings/:id
   def show
-    @interview = Interview.includes(:attendees, calendar_events: :user).find(params[:id])
+    @meeting = Meeting.includes(:attendees, calendar_events: :user).find(params[:id])
   end
 
-  # POST /interviews
+  # POST /meetings
   # §6.6 手順7 ／ §5 ／ A-3：確定直前にトランザクション内で再判定する。
   def create
-    @user_ids  = selected_user_ids
-    @interview = Interview.new(interview_params.merge(created_by: current_user))
+    @user_ids = selected_user_ids
+    @meeting  = Meeting.new(meeting_params.merge(created_by: current_user))
 
     if confirm_booking
-      redirect_to @interview, notice: "予約を確定しました"
+      redirect_to @meeting, notice: "予約を確定しました"
     else
       rerender_new_with_booking
     end
@@ -69,7 +69,7 @@ class InterviewsController < ApplicationController
   # A-2-4：予定とルールを事前読み込みし、区間ごとにDBを叩かない。
   def load_calendar
     @tenant_rules = AvailabilityRule.where(user_id: nil).to_a
-    @users = User.where(id: @user_ids, interviewer: true)
+    @users = User.where(id: @user_ids, participant: true)
                  .includes(:availability_rules)
                  .order(:name)
                  .to_a
@@ -97,18 +97,18 @@ class InterviewsController < ApplicationController
     end_at   = parse_time(params[:end_at])
     return if start_at.nil? || end_at.nil?
 
-    @interview ||= Interview.new(start_at: start_at, end_at: end_at, location_type: "online")
-    @selected_interviewers = User.where(id: @user_ids, interviewer: true).order(:name).to_a
-    @booking = @selected_interviewers.any?
+    @meeting ||= Meeting.new(start_at: start_at, end_at: end_at, location_type: "online")
+    @selected_participants = User.where(id: @user_ids, participant: true).order(:name).to_a
+    @booking = @selected_participants.any?
   end
 
   # 確定に失敗したとき、画面①を丸ごと描き直す（カレンダーとフォームの両方）。
   def rerender_new_with_booking
     assign_params
-    @interviewers = User.where(interviewer: true).order(:name)
+    @participants = User.where(participant: true).order(:name)
     load_calendar if @user_ids.any?
-    @selected_interviewers = User.where(id: @user_ids, interviewer: true).order(:name).to_a
-    @booking = @interview.start_at.present? && @interview.end_at.present? && @selected_interviewers.any?
+    @selected_participants = User.where(id: @user_ids, participant: true).order(:name).to_a
+    @booking = @meeting.start_at.present? && @meeting.end_at.present? && @selected_participants.any?
     render :new, status: :unprocessable_entity
   end
 
@@ -116,25 +116,25 @@ class InterviewsController < ApplicationController
   # Rails 8.1 の SQLite3 アダプタは全トランザクションを `BEGIN IMMEDIATE` で開始するため
   # （検証済み。`isolation: :immediate` 引数は TransactionIsolationError で拒否される）、
   # 素の transaction ブロックで開始時に書き込みロックを取れる。
-  # 戻り値：確定できたら true、できなければ false（@booking_error か @interview.errors に理由）。
+  # 戻り値：確定できたら true、できなければ false（@booking_error か @meeting.errors に理由）。
   def confirm_booking
-    return false unless @interview.valid?(:create) # 過去日時・必須項目・区間はここで弾く（§9.3-1）
+    return false unless @meeting.valid?(:create) # 過去日時・必須項目・区間はここで弾く（§9.3-1）
 
     ActiveRecord::Base.transaction do
-      users = User.where(id: @user_ids, interviewer: true)
+      users = User.where(id: @user_ids, participant: true)
                   .includes(:availability_rules, :calendar_events)
                   .order(:id)
                   .to_a
 
       if users.empty?
-        @booking_error = "面接官が選択されていません"
+        @booking_error = "参加者が選択されていません"
         raise ActiveRecord::Rollback
       end
 
       # 検索時とまったく同じ AvailabilityChecker で、選択メンバーだけ再判定する。
       tenant_rules = AvailabilityRule.where(user_id: nil).to_a
       results = AvailabilityChecker
-                .new(start_at: @interview.start_at, end_at: @interview.end_at, tenant_rules: tenant_rules)
+                .new(start_at: @meeting.start_at, end_at: @meeting.end_at, tenant_rules: tenant_rules)
                 .call(users)
       busy = results.reject(&:available)
 
@@ -144,16 +144,16 @@ class InterviewsController < ApplicationController
         raise ActiveRecord::Rollback
       end
 
-      @interview.save!
+      @meeting.save!
       users.each do |user|
-        @interview.interview_attendees.create!(user: user)
-        # §3.3(1)：面接の記録とは別に、時間の占有を出席者ごとに1件書く。
-        # source: "app" と interview を設定しないと、次の検索で自分の面接が
+        @meeting.meeting_attendees.create!(user: user)
+        # §3.3(1)：ミーティングの記録とは別に、時間の占有を出席者ごとに1件書く。
+        # source: "app" と meeting を設定しないと、次の検索で自分のミーティングが
         # 空き判定から漏れて自分でダブルブッキングする。
-        @interview.calendar_events.create!(
+        @meeting.calendar_events.create!(
           user: user, source: "app", all_day: false,
-          title: @interview.calendar_title, # BR-11：面接：{候補者名}様（編集不可）
-          start_at: @interview.start_at, end_at: @interview.end_at
+          title: @meeting.calendar_title, # BR-11：ミーティング：{ゲスト名}様（編集不可）
+          start_at: @meeting.start_at, end_at: @meeting.end_at
         )
       end
 
@@ -163,11 +163,23 @@ class InterviewsController < ApplicationController
     false
   end
 
-  def interview_params
-    params.expect(interview: %i[candidate_name location_type location_text meet_url])
-          .merge(
-            start_at: parse_time(params.dig(:interview, :start_at)),
-            end_at:   parse_time(params.dig(:interview, :end_at))
-          )
+  def meeting_params
+    params.expect(meeting: %i[guest_name location_type location_text meet_url])
+          .merge(start_at: resolved_start_at, end_at: resolved_end_at)
+  end
+
+  # 予約フォームはミーティング日（date）を①から引き継ぎ、開始時刻・所要時間はBR-08に
+  # 合わせて自由入力にしている（date + start_time + duration から組み立てる）。
+  def resolved_start_at
+    return nil if params[:date].blank? || params[:start_time].blank?
+
+    parse_time("#{params[:date]} #{params[:start_time]}")
+  end
+
+  def resolved_end_at
+    start_at = resolved_start_at
+    return nil if start_at.nil?
+
+    start_at + duration_param.minutes
   end
 end

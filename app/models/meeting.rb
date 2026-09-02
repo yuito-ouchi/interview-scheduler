@@ -1,16 +1,16 @@
-class Interview < ApplicationRecord
-  # 面接の業務記録。時間の占有は calendar_events 側に別レコードとして持つ。
+class Meeting < ApplicationRecord
+  # ミーティングの業務記録。時間の占有は calendar_events 側に別レコードとして持つ。
   LOCATION_TYPES = %w[online onsite].freeze
 
-  belongs_to :created_by, class_name: "User", inverse_of: :created_interviews
+  belongs_to :created_by, class_name: "User", inverse_of: :created_meetings
 
-  has_many :interview_attendees, dependent: :destroy
-  has_many :attendees, through: :interview_attendees, source: :user
+  has_many :meeting_attendees, dependent: :destroy
+  has_many :attendees, through: :meeting_attendees, source: :user
 
-  # 本ツールが作成した占有（source=app）。面接を消せば占有も消える
+  # 本ツールが作成した占有（source=app）。ミーティングを消せば占有も消える
   has_many :calendar_events, dependent: :destroy
 
-  validates :candidate_name, presence: true
+  validates :guest_name, presence: true
   validates :location_type, inclusion: { in: LOCATION_TYPES }
   validates :start_at, :end_at, presence: true
   validate  :end_after_start
@@ -24,7 +24,7 @@ class Interview < ApplicationRecord
 
   # BR-11: 予約タイトルは固定フォーマット。編集不可
   def calendar_title
-    "面接：#{candidate_name}様"
+    "ミーティング：#{guest_name}様"
   end
 
   private
