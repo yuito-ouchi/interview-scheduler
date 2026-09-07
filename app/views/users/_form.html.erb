@@ -1,0 +1,31 @@
+<%= form_with model: user, class: "user-form" do |f| %>
+  <% if user.errors.any? %>
+    <ul class="errors">
+      <% user.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <p>
+    <%= f.label :name, "氏名" %>
+    <%= f.text_field :name, required: true %>
+  </p>
+  <p>
+    <%= f.label :email, "メールアドレス" %>
+    <%= f.email_field :email, required: true %>
+  </p>
+  <p>
+    <%= f.label :password, user.persisted? ? "パスワード（変更する場合のみ入力）" : "パスワード" %>
+    <%= f.password_field :password, required: !user.persisted?, autocomplete: "new-password" %>
+  </p>
+
+  <fieldset class="user-form__flags">
+    <legend>役割（複数選択可・仕様書§6.1）</legend>
+    <label><%= f.check_box :operator %> 主催者（ログインしてツールを操作できる）</label>
+    <label><%= f.check_box :participant %> 参加者（ミーティングの候補になる）</label>
+    <label><%= f.check_box :admin %> 管理者（この設定画面を操作できる）</label>
+  </fieldset>
+
+  <%= f.submit user.persisted? ? "更新する" : "追加する" %>
+<% end %>

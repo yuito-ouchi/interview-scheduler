@@ -1,0 +1,7 @@
+<%# 「設定」配下の子ページを切り替えるタブ。admin限定の画面でのみ使う。 %>
+<nav class="settings-nav">
+  <%= link_to "メンバー管理", users_path,
+        class: [ "settings-nav__tab", ("is-active" if current_page?(users_path)) ] %>
+  <%= link_to "テナント設定", tenant_rules_path,
+        class: [ "settings-nav__tab", ("is-active" if current_page?(tenant_rules_path)) ] %>
+</nav>

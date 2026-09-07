@@ -51,29 +51,29 @@
         </p>
 
         <p>
-          <%= f.label :guest_name, "ゲスト名" %>
-          <span class="input-suffix">
-            <%= f.text_field :guest_name, required: true %>
-            <span>様</span>
-          </span>
+          <%= f.label :guest_name, "ゲスト名" %><br>
+          <%= f.text_field :guest_name, required: true %>
         </p>
-        <p>
-          <%= f.label :location_type, "実施方法" %><br>
-          <%= f.select :location_type, [ [ "オンライン", "online" ], [ "対面", "onsite" ] ] %>
-        </p>
-        <p>
-          <%= f.label :location_text, "場所（任意）" %><br>
-          <%= f.text_field :location_text %>
-        </p>
-        <p>
-          <%= f.label :meet_url, "会議URL（任意）" %><br>
-          <%= f.url_field :meet_url %>
-        </p>
+        <div data-controller="location-type">
+          <p>
+            <%= f.label :location_type, "実施方法" %><br>
+            <%= f.select :location_type, [ [ "オンライン", "online" ], [ "対面", "onsite" ] ],
+                  {}, data: { location_type_target: "select", action: "change->location-type#toggle" } %>
+          </p>
+          <p data-location-type-target="onlineField">
+            <%= f.label :meet_url, "会議URL（任意）" %><br>
+            <%= f.url_field :meet_url %>
+          </p>
+          <p data-location-type-target="onsiteField">
+            <%= f.label :location_text, "場所（任意）" %><br>
+            <%= f.text_field :location_text %>
+          </p>
+        </div>
 
         <%= f.submit "予約する" %>
       <% end %>
     </section>
   <% else %>
-    <p class="hint">カレンダーの空き枠（時刻リンク）を選ぶと、ここに予約フォームが開きます。</p>
+    <p class="hint">カレンダーの緑の空き帯をクリックすると、押した位置の時刻でここに予約フォームが開きます（5分刻み・後から調整可）。</p>
   <% end %>
 <% end %>

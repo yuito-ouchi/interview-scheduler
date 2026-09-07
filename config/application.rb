@@ -23,6 +23,10 @@ module MeetingScheduler
     #
     # 入出力は JST、DB 保存は UTC（仕様書 §4.5）。default_timezone は既定の :utc のまま
     config.time_zone = "Tokyo"
+
+    # アプリのUIは全て日本語（画面側はハードコードだが、Deviseの標準メッセージは
+    # devise-i18n gem 頼みのため、これが無いと英語のまま出る。判断メモ D-12）
+    config.i18n.default_locale = :ja
     # config.eager_load_paths << Rails.root.join("extras")
   end
 end

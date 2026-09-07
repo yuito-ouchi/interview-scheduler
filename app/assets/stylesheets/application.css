@@ -22,24 +22,24 @@
   --color-primary-soft: #edf1fd;
   --color-primary-border: #c3cdf7;
 
-  --color-free-bg: #e4f5ec;
-  --color-free-border: #58b884;
-  --color-free-text: #1e6b45;
+  /* 週カレンダーの状態色は「空き＞予定あり＞予約不可＞営業日外」の順で
+     視線の優先度が下がるよう、彩度・明度だけで段差をつける（色相の意味は
+     変えない。緑＝空き／灰＝予定あり／赤＝予約不可／灰＝営業日外）。 */
+  --color-free-bg: #dcf3e6;
+  --color-free-border: #35a367;
+  --color-free-text: #146341;
 
   --color-busy-bg: #eef0f4;
   --color-busy-border: #cdd2dd;
   --color-busy-text: #575e6d;
 
-  --color-near-bg: #fef3e0;
-  --color-near-border: #e2a83f;
-  --color-near-text: #8a5c00;
+  --color-blocked-bg: #f7ecec;
+  --color-blocked-stripe: #efdedd;
+  --color-blocked-border: #ddb3ae;
+  --color-blocked-text: #a15850;
 
-  --color-blocked-bg: #fdeceb;
-  --color-blocked-border: #e79b93;
-  --color-blocked-text: #a13c33;
-
-  --color-closed-bg: #eef0f4;
-  --color-closed-text: #9aa1b1;
+  --color-closed-bg: #f4f5f8;
+  --color-closed-text: #b0b5c2;
 
   --color-danger: #d0362a;
 
@@ -52,6 +52,15 @@
 
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Hiragino Kaku Gothic ProN",
     "Hiragino Sans", "Yu Gothic", Meiryo, Roboto, Helvetica, Arial, sans-serif;
+
+  /* タイポグラフィは「見出し・ラベル・補足」の3段階＋ページ表題(display)に統一する。
+     以前は .78rem〜.95rem の間に細かい端数が並んでいて階層が読み取りにくかったため、
+     既存セレクタの font-size をこの4トークンのいずれかに寄せる（週カレンダーの
+     セグメント内テキストのみ、480区間を詰め込む都合上さらに小さい実寸値を使う例外）。 */
+  --text-display: 1.375rem; /* ページ表題（h1） */
+  --text-heading: 1rem;     /* 見出し（h2・週ナビの現在週ラベルなど） */
+  --text-body: .88rem;      /* ラベル・本文（ボタン・入力・テーブル本文・ナビ） */
+  --text-caption: .78rem;   /* 補足（ヒント・凡例・テーブル見出し・小さな注記） */
 }
 
 * { box-sizing: border-box; }
@@ -67,8 +76,8 @@ body {
 
 main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
 
-h1 { font-size: 1.375rem; font-weight: 700; margin: 0 0 1.25rem; letter-spacing: -.01em; }
-h2 { font-size: 1.05rem; font-weight: 700; margin: 0 0 .75rem; }
+h1 { font-size: var(--text-display); font-weight: 700; margin: 0 0 1.25rem; letter-spacing: -.01em; }
+h2 { font-size: var(--text-heading); font-weight: 700; margin: 0 0 .75rem; }
 
 a { color: var(--color-primary); }
 
@@ -86,30 +95,40 @@ code {
   border-bottom: 1px solid var(--color-border);
 }
 .topbar__inner {
-  max-width: 1100px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: .85rem 1.5rem;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  gap: 1.5rem;
 }
-.topbar__brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; font-size: 1rem; }
+.topbar__brand { display: flex; align-items: center; gap: .55rem; font-weight: 700; font-size: var(--text-heading); }
 .topbar__mark {
   width: 28px; height: 28px; border-radius: 8px;
   background: var(--color-primary); color: #fff;
   display: flex; align-items: center; justify-content: center;
-  font-size: .8rem; font-weight: 700; flex-shrink: 0;
+  font-size: var(--text-caption); font-weight: 700; flex-shrink: 0;
 }
-.topbar__user { display: flex; align-items: center; gap: .65rem; font-size: .85rem; color: var(--color-text-muted); }
+.topbar__nav { display: flex; align-items: center; gap: 1.25rem; flex: 1; }
+.topbar__nav a { font-size: var(--text-body); font-weight: 600; color: var(--color-text-muted); text-decoration: none; }
+.topbar__nav a:hover { color: var(--color-primary); }
+.topbar__user { display: flex; align-items: center; gap: .65rem; font-size: var(--text-body); color: var(--color-text-muted); margin-left: auto; }
 .topbar__avatar {
   width: 26px; height: 26px; border-radius: 50%;
   background: var(--color-primary-soft); color: var(--color-primary);
   display: flex; align-items: center; justify-content: center;
-  font-size: .75rem; font-weight: 700;
+  font-size: var(--text-caption); font-weight: 700;
 }
-.topbar__switch { font-size: .82rem; color: var(--color-text-muted); text-decoration: none; }
+.topbar__switch { font-size: var(--text-body); color: var(--color-text-muted); text-decoration: none; }
 .topbar__switch:hover { color: var(--color-primary); }
+/* button_to はデフォルトで form.button_to > input[type=submit] を生成する。
+   周囲は普通のリンクと同じ見た目にしたいので、共通の submit ボタン装飾を打ち消す。 */
+.topbar__logout-btn {
+  all: unset;
+  cursor: pointer;
+  font-size: var(--text-body); color: var(--color-text-muted); text-decoration: none;
+}
+.topbar__logout-btn:hover { color: var(--color-danger); }
 
 .hint {
   color: var(--color-text-muted);
@@ -117,7 +136,7 @@ code {
   border: 1px solid var(--color-border);
   padding: .85rem 1rem;
   border-radius: var(--radius-md);
-  font-size: .9rem;
+  font-size: var(--text-body);
 }
 .hint--empty { background: #fff8ed; color: #8a5a00; border-color: #f4dfae; }
 .flash-alert {
@@ -126,7 +145,7 @@ code {
   border: 1px solid var(--color-blocked-border);
   padding: .6rem .9rem;
   border-radius: var(--radius-sm);
-  font-size: .88rem;
+  font-size: var(--text-body);
 }
 
 .card {
@@ -143,7 +162,7 @@ input[type="submit"], .btn {
   background: var(--color-primary);
   color: #fff;
   font-family: inherit;
-  font-size: .92rem;
+  font-size: var(--text-body);
   font-weight: 600;
   padding: .65rem 1.35rem;
   border-radius: var(--radius-md);
@@ -156,9 +175,10 @@ input[type="submit"]:active, .btn:active { transform: translateY(1px); }
 input[type="submit"]:disabled { background: var(--color-text-faint); cursor: not-allowed; }
 
 /* text inputs / selects */
-input[type="text"], input[type="url"], input[type="time"], input[type="number"], select, textarea {
+input[type="text"], input[type="url"], input[type="time"], input[type="number"],
+input[type="search"], select, textarea {
   font-family: inherit;
-  font-size: .92rem;
+  font-size: var(--text-body);
   padding: .55rem .75rem;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
@@ -170,20 +190,21 @@ input[type="text"], input[type="url"], input[type="time"], input[type="number"],
 input[type="number"] { max-width: 140px; }
 input[type="time"] { max-width: 160px; }
 input[type="text"]:focus, input[type="url"]:focus, input[type="time"]:focus,
-input[type="number"]:focus, select:focus, textarea:focus {
+input[type="number"]:focus, input[type="search"]:focus, select:focus, textarea:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-soft);
 }
-label { font-size: .85rem; font-weight: 600; color: var(--color-text-muted); }
+label { font-size: var(--text-body); font-weight: 600; color: var(--color-text-muted); }
 
 /* --- 画面：操作者選択（ログイン） -------------------------------------- */
 .session-new { max-width: 420px; margin: 4.5rem auto; padding: 0 1.5rem; }
 .session-new .card { padding: 2rem 1.75rem; }
 .session-new h1 { text-align: center; }
-.session-new p { color: var(--color-text-muted); font-size: .9rem; }
+.session-new p { color: var(--color-text-muted); font-size: var(--text-body); }
 .session-new select { max-width: 100%; margin: .35rem 0 1.25rem; }
 .session-new input[type="submit"] { width: 100%; }
+.session-new__links { text-align: center; margin-top: 1.25rem; font-size: var(--text-caption); }
 
 /* --- 画面①：ミーティングを組む ------------------------------------------ */
 .meetings-new .card { padding: 1.5rem; margin-bottom: 1.5rem; }
@@ -200,8 +221,8 @@ label { font-size: .85rem; font-weight: 600; color: var(--color-text-muted); }
    即座にカレンダーへ反映される（カレンダー側の各予定ブロックからは操作
    できないようにしている＝カレンダーは「見る」専用、条件はここでだけ選ぶ）。 */
 .search-panel { display: flex; flex-direction: column; gap: 1.25rem; padding: 1.25rem; }
-.search-panel__section h2 { font-size: .95rem; margin-bottom: .35rem; }
-.search-panel__hint { font-size: .78rem; color: var(--color-text-muted); margin: 0 0 .6rem; }
+.search-panel__section h2 { font-size: var(--text-heading); margin-bottom: .35rem; }
+.search-panel__hint { font-size: var(--text-caption); color: var(--color-text-muted); margin: 0 0 .6rem; }
 .search-panel input[type="submit"] { width: 100%; }
 
 .member-panel__list { display: flex; flex-direction: column; gap: .3rem; }
@@ -209,7 +230,7 @@ label { font-size: .85rem; font-weight: 600; color: var(--color-text-muted); }
   display: flex; align-items: center; gap: .55rem;
   padding: .4rem .55rem;
   border-radius: var(--radius-sm);
-  font-size: .88rem; font-weight: 500; color: var(--color-text);
+  font-size: var(--text-body); font-weight: 500; color: var(--color-text);
   cursor: pointer;
   transition: background .15s ease, color .15s ease;
 }
@@ -230,28 +251,32 @@ label { font-size: .85rem; font-weight: 600; color: var(--color-text-muted); }
 .week-nav a {
   text-decoration: none; color: var(--color-text);
   border: 1px solid var(--color-border); border-radius: var(--radius-sm);
-  padding: .4rem .8rem; font-size: .85rem; font-weight: 600;
+  padding: .4rem .8rem; font-size: var(--text-body); font-weight: 600;
   background: var(--color-surface);
 }
 .week-nav a:hover { border-color: var(--color-primary-border); color: var(--color-primary); }
-.week-nav__label { font-size: .88rem; font-weight: 600; color: var(--color-text-muted); text-align: center; }
+.week-nav a:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 1px; }
+/* 前週／翌週ボタンに挟まれた「今どの週を見ているか」。ここが実質の見出しなので
+   本文サイズではなく見出しサイズを当てて優先度を上げる。 */
+.week-nav__label { font-size: var(--text-heading); font-weight: 700; color: var(--color-text); text-align: center; }
 
 .week-legend {
   display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-  margin: 0 0 1rem; font-size: .8rem; color: var(--color-text-muted);
+  margin: 0 0 1rem; font-size: var(--text-caption); color: var(--color-text-muted);
 }
 .week-legend .dot { display: inline-flex; align-items: center; gap: .4rem; }
 .week-legend .dot::before {
   content: ""; width: .65rem; height: .65rem; border-radius: 3px; display: inline-block;
 }
 .week-legend .dot--free::before { background: var(--color-free-bg); border: 1px solid var(--color-free-border); }
-.week-legend .dot--near::before { background: var(--color-near-bg); border: 1px solid var(--color-near-border); }
 .week-legend .dot--busy::before { background: var(--color-busy-bg); border: 1px solid var(--color-busy-border); }
 .week-legend .dot--blocked::before { background: var(--color-blocked-bg); border: 1px solid var(--color-blocked-border); }
 .week-legend .dot--closed::before { background: var(--color-closed-bg); border: 1px solid var(--color-border); }
 
 .week-grid {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 1px;
+  /* 先頭は時刻軸列。中身（正時ラベル）は position:absolute で幅を持たないため、
+     トラック幅を固定する（auto にすると終日予定が無い週で 0px に潰れる）。 */
+  display: grid; grid-template-columns: 2.75rem repeat(7, 1fr); gap: 1px;
   background: var(--color-border);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
@@ -259,8 +284,46 @@ label { font-size: .85rem; font-weight: 600; color: var(--color-text-muted); }
   box-shadow: var(--shadow-sm);
 }
 .week-grid__day { background: var(--color-surface); }
+
+/* 左端の時刻軸列。見出し／終日／本体の3段を、日カラムと同じ高さでそろえる。 */
+.week-grid__axis { background: var(--color-surface); }
+.week-grid__axis-head {
+  min-height: 2.35rem;
+  border-bottom: 1px solid var(--color-border);
+}
+.week-grid__axis-body { position: relative; }
+.week-grid__tick {
+  position: absolute; right: .45rem;
+  font-size: .68rem; color: var(--color-text-muted);
+  transform: translateY(-50%); white-space: nowrap;
+}
+/* 表示レンジの先頭・末尾の正時は、中央揃え(-50%)だとテキストの半分が
+   .week-grid の overflow:hidden の外にはみ出して見切れる（top:0px /
+   top:height px ちょうどに乗るため）。両端だけ内側にアンカーし直す。 */
+.week-grid__tick--first { transform: translateY(0); }
+.week-grid__tick--last { transform: translateY(-100%); }
+
+/* 終日予定の帯。軸ラベルと各日セルを固定高でそろえ、本体の開始位置を全列で一致させる。 */
+.week-grid__axis-allday,
+.week-grid__allday {
+  height: 2.5rem; box-sizing: border-box;
+  border-bottom: 1px solid var(--color-border);
+  padding: 3px; overflow-y: auto;
+}
+.week-grid__axis-allday {
+  display: flex; align-items: center; justify-content: flex-end;
+  padding-right: .45rem;
+  font-size: var(--text-caption); font-weight: 700; color: var(--color-text-muted);
+}
+.week-grid__allday--closed {
+  background: repeating-linear-gradient(135deg, var(--color-closed-bg), var(--color-closed-bg) 6px, var(--color-surface) 6px, var(--color-surface) 12px);
+}
 .week-grid__head {
-  font-size: .78rem; font-weight: 700; padding: .6rem .25rem;
+  /* min-height で7列とも見出しの高さを固定し、曜日ラベルの折り返し有無に
+     関わらず本体（.week-grid__body）の開始位置が横一列に揃うようにする。 */
+  min-height: 2.35rem;
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--text-caption); font-weight: 700; padding: .4rem .25rem;
   text-align: center; background: var(--color-surface);
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text-muted);
@@ -268,10 +331,19 @@ label { font-size: .85rem; font-weight: 600; color: var(--color-text-muted); }
 /* 高さは Rails 側でインラインの height:...px を必ず指定する（分数×PX_PER_MIN）。
    親を flex にすると flex-basis が height を上書きしてこの値が無視されるため、
    ここは通常の block のままにする（一度 flex 化して事故ったので明記）。 */
-.week-grid__body { position: relative; background: var(--color-surface); overflow: hidden; }
+.week-grid__body {
+  position: relative; overflow: hidden;
+  background-color: var(--color-surface);
+  /* 正時ごとの薄い横罫。PX_PER_MIN=1 なので 60px = 1時間。時刻軸のラベルと対応する。 */
+  background-image: repeating-linear-gradient(to bottom, transparent 0 59px, var(--color-border) 59px 60px);
+}
 .week-grid__body--closed {
-  padding: 1.25rem .25rem; text-align: center; color: var(--color-text-faint);
-  font-size: .78rem;
+  /* 営業日の列と同じ高さ（body_height）を明示し、時刻軸と揃えたうえで
+     テキストを中央に置く（以前は自動高さの短い箱で、他列と高さが揃わなかった）。 */
+  display: flex; align-items: center; justify-content: center;
+  min-height: 3.5rem;
+  text-align: center; color: var(--color-closed-text);
+  font-size: var(--text-caption);
   background: repeating-linear-gradient(135deg, var(--color-closed-bg), var(--color-closed-bg) 6px, var(--color-surface) 6px, var(--color-surface) 12px);
 }
 
@@ -281,49 +353,94 @@ label { font-size: .85rem; font-weight: 600; color: var(--color-text-muted); }
   border-radius: 6px; overflow: hidden; box-sizing: border-box;
 }
 .seg small { display: block; opacity: .7; font-size: .68rem; }
+/* 空き枠は最優先の情報かつクリック対象（帯のどこを押したかが開始時刻になる）。
+   リンクだが下線を出さず、ホバー／フォーカスで塗りを一段濃くして「押せる」ことを示す。 */
 .seg--free {
+  display: block; text-decoration: none; cursor: pointer;
   background: var(--color-free-bg); border: 1px solid var(--color-free-border);
-  color: var(--color-free-text); cursor: pointer;
+  color: var(--color-free-text); padding: .2rem .4rem;
+  transition: background .12s ease, border-color .12s ease;
 }
+.seg--free:hover { background: var(--color-free-border); border-color: var(--color-free-text); }
+.seg--free:focus-visible { outline: 2px solid var(--color-free-text); outline-offset: 1px; }
+.seg__range { display: block; font-size: .68rem; opacity: .75; }
 .seg--busy { background: var(--color-busy-bg); border: 1px solid var(--color-busy-border); color: var(--color-busy-text); }
-.seg--near { background: var(--color-near-bg); border: 1px solid var(--color-near-border); color: var(--color-near-text); }
 .seg--allday { position: static; margin: 3px; border-radius: 6px; }
 .seg--blocked {
-  background: repeating-linear-gradient(45deg, var(--color-blocked-bg), var(--color-blocked-bg) 5px, #f7dbd8 5px, #f7dbd8 10px);
+  background: repeating-linear-gradient(45deg, var(--color-blocked-bg), var(--color-blocked-bg) 5px, var(--color-blocked-stripe) 5px, var(--color-blocked-stripe) 10px);
   border: 1px solid var(--color-blocked-border); color: var(--color-blocked-text);
 }
-.seg--closed { background: var(--color-closed-bg); border: 1px solid var(--color-border); }
+.seg--closed { background: var(--color-closed-bg); border: 1px solid var(--color-border); color: var(--color-closed-text); }
 .seg__label { display: block; font-weight: 700; }
-.seg__picks { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 2px; }
-.seg__pick {
-  background: var(--color-surface); border: 1px solid var(--color-free-border);
-  color: var(--color-free-text);
-  border-radius: 999px; padding: .05rem .45rem; font-size: .68rem; font-weight: 600;
-  text-decoration: none;
-}
-.seg__pick:hover { background: var(--color-free-border); color: #fff; }
 
 /* --- 画面①b：予約フォーム / 予約詳細 --------------------------------- */
 .booking { margin-top: 1.5rem; padding: 1.5rem; max-width: 480px; }
 .booking__slot {
-  font-weight: 600; font-size: .92rem;
+  font-weight: 600; font-size: var(--text-body);
   background: var(--color-primary-soft); color: var(--color-primary);
   border-radius: var(--radius-sm); padding: .6rem .8rem; margin: 0 0 1.1rem;
 }
 .booking__form p { margin: 0 0 .9rem; display: flex; flex-direction: column; gap: .3rem; }
+/* [hidden] はブラウザ標準スタイルだと display:none だが、上の
+   `.booking__form p { display: flex }` の方が詳細度で勝ってしまい効かない
+   ため、location-type コントローラで出し分ける項目に対して明示的に上書きする。 */
+.booking__form p[hidden] { display: none; }
 .booking__form label { margin: 0; }
-.input-suffix { display: flex; align-items: center; gap: .5rem; font-size: .92rem; color: var(--color-text-muted); }
-.input-suffix input { width: auto; flex: 1; }
-.errors { color: var(--color-danger); font-size: .85rem; padding-left: 1.1rem; }
+.errors { color: var(--color-danger); font-size: var(--text-body); padding-left: 1.1rem; }
 
 .meeting-show .card { padding: 1.75rem; max-width: 560px; }
 .meeting-show__badge {
   display: inline-flex; align-items: center; gap: .4rem;
   color: var(--color-free-text); background: var(--color-free-bg);
   border: 1px solid var(--color-free-border);
-  border-radius: 999px; padding: .3rem .8rem; font-size: .82rem; font-weight: 700;
+  border-radius: 999px; padding: .3rem .8rem; font-size: var(--text-body); font-weight: 700;
   margin-bottom: 1rem;
 }
 .meeting-show dl { display: grid; grid-template-columns: 6.5rem 1fr; gap: .6rem 1rem; margin: 0 0 1rem; }
-.meeting-show dt { font-weight: 600; color: var(--color-text-muted); font-size: .85rem; }
-.meeting-show dd { margin: 0; font-size: .92rem; }
+.meeting-show dt { font-weight: 600; color: var(--color-text-muted); font-size: var(--text-caption); }
+.meeting-show dd { margin: 0; font-size: var(--text-body); }
+.meeting-show__actions { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+
+/* --- 画面②：予約一覧・変更 --------------------------------------------- */
+.meetings-search { display: flex; align-items: center; gap: .6rem; margin: 0 0 1rem; }
+.meetings-search__input { max-width: 320px; }
+.meetings-index .card { padding: 0; overflow-x: auto; }
+.meetings-table { width: 100%; border-collapse: collapse; font-size: var(--text-body); }
+.meetings-table th, .meetings-table td { text-align: left; padding: .7rem .9rem; border-bottom: 1px solid var(--color-border); white-space: nowrap; }
+.meetings-table th { color: var(--color-text-muted); font-weight: 600; font-size: var(--text-caption); }
+.meetings-table__actions { display: flex; gap: .75rem; align-items: center; }
+.meetings-edit .card { padding: 1.5rem; max-width: 480px; }
+
+/* --- 画面③：メンバー管理・固定ブロック（設定・admin限定） -------------- */
+/* 「設定」配下の子ページを切り替えるタブ（メンバー管理／固定ブロック）。 */
+.settings-nav { display: flex; gap: .25rem; margin: 0 0 1.25rem; border-bottom: 1px solid var(--color-border); }
+.settings-nav__tab {
+  display: inline-block; padding: .5rem .9rem; margin-bottom: -1px;
+  font-size: var(--text-body); font-weight: 600; color: var(--color-text-muted);
+  text-decoration: none; border-bottom: 2px solid transparent;
+}
+.settings-nav__tab:hover { color: var(--color-primary); }
+.settings-nav__tab.is-active { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+
+.users-index .card, .users-new .card, .tenant-rules-index .card { padding: 1.5rem; }
+.settings-section { margin: 0 0 2.5rem; }
+.settings-section h2 { margin-bottom: .5rem; }
+.is-muted { color: var(--color-text-muted); }
+.users-table { width: 100%; border-collapse: collapse; font-size: var(--text-body); }
+.users-table th, .users-table td { text-align: left; padding: .6rem .5rem; border-bottom: 1px solid var(--color-border); }
+.users-table th { color: var(--color-text-muted); font-weight: 600; font-size: var(--text-caption); }
+.users-table__actions { display: flex; gap: .75rem; align-items: center; }
+
+.user-form { display: flex; flex-direction: column; gap: 1rem; max-width: 420px; }
+.user-form__flags { border: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: .5rem; }
+.user-form__flags legend { font-size: var(--text-caption); font-weight: 600; color: var(--color-text-muted); padding: 0; margin-bottom: .3rem; }
+.user-form__flags label { display: flex; align-items: center; gap: .5rem; font-size: var(--text-body); font-weight: 500; color: var(--color-text); }
+.user-form__flags input[type="checkbox"] { accent-color: var(--color-primary); }
+
+/* 破壊的操作をリンク風のボタンで出す共通クラス（削除・ログアウト等） */
+.link-btn {
+  all: unset;
+  cursor: pointer;
+  font-size: var(--text-body); color: var(--color-text-muted); text-decoration: underline;
+}
+.link-btn:hover { color: var(--color-danger); }

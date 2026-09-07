@@ -1,20 +1,39 @@
 module MeetingsHelper
   # 週カレンダーの縦スケール。1分あたりのピクセル数。
-  PX_PER_MIN = 0.8
+  PX_PER_MIN = 1.0
   WDAY_JA = %w[日 月 火 水 木 金 土].freeze
 
   # 週内の全営業時間を包含する表示レンジ [開始分, 終了分]（0時起点の分）。
   # 営業日が1つもなければ [nil, nil]。
-  def calendar_bounds(days)
+  #
+  # events を渡すと、営業時間をまたぐ予定（例：9:00-19:00の終日でない外部予定が
+  # 10:00-18:00の営業時間をはみ出す）の分もレンジに含める。渡さなければ従来通り
+  # 営業時間のみ。含めないと、はみ出した予定が negative top や height 超過になり
+  # position:absolute + overflow:hidden の .week-grid__body に切れて表示される
+  # （見た目上「見切れる」不具合になっていた）。
+  def calendar_bounds(days, events = [])
     open = days.reject(&:closed?)
     return [ nil, nil ] if open.empty?
 
-    [ open.map { |d| minutes_of_day(d.open_from) }.min,
-      open.map { |d| minutes_of_day(d.open_to) }.max ]
+    from = open.map { |d| minutes_of_day(d.open_from) } + events.map { |e| minutes_of_day(e[:start_at]) }
+    to   = open.map { |d| minutes_of_day(d.open_to) }   + events.map { |e| minutes_of_day(e[:end_at]) }
+
+    [ from.min, to.max ]
   end
 
   def minutes_of_day(time)
     (time.hour * 60) + time.min
+  end
+
+  # 時刻軸に並べる正時のリスト。表示レンジ [view_from_min, view_to_min]（0時起点の分）
+  # に収まる毎時 h を返す。tick_top と合わせて縦位置を出す。
+  def hour_ticks(view_from_min, view_to_min)
+    ((view_from_min / 60.0).ceil..(view_to_min / 60.0).floor).to_a
+  end
+
+  # 正時 hour（0-23）を表示レンジ内に配置する top（px）。segment_style と同じスケール。
+  def tick_top(hour, view_from_min)
+    ((hour * 60) - view_from_min) * PX_PER_MIN
   end
 
   # 区間を表示レンジ内に配置する top/height（px）。潰れないよう最小高を確保する。
@@ -72,19 +91,6 @@ module MeetingsHelper
 
   def hhmm(time)
     time.strftime("%-H:%M")
-  end
-
-  # 空き帯の中から選ばせる開始時刻の候補。step_minutes 刻みに、末尾（まだ収まる
-  # 最後の開始）を必ず含める。5分刻みの生の枠を全部出すと画面が埋まるため間引く。
-  def window_starts(window, step_minutes: 30)
-    starts = []
-    cursor = window[:start_at]
-    while cursor <= window[:last_start]
-      starts << cursor
-      cursor += step_minutes.minutes
-    end
-    starts << window[:last_start] unless starts.include?(window[:last_start])
-    starts
   end
 
   def wday_ja(date)

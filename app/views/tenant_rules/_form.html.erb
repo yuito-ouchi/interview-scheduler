@@ -1,0 +1,34 @@
+<%# rule_type は URL のクエリ（新規）／既存レコード（編集）で決まる。 %>
+<%# フォームからは送らない＝この画面で allow を block にすり替えられない。 %>
+<%= form_with model: tenant_rule,
+              url: (tenant_rule.persisted? ? tenant_rule_path(tenant_rule) : tenant_rules_path(rule_type: rule_type)),
+              class: "user-form" do |f| %>
+  <% if tenant_rule.errors.any? %>
+    <ul class="errors">
+      <% tenant_rule.errors.full_messages.each do |msg| %>
+        <li><%= msg %></li>
+      <% end %>
+    </ul>
+  <% end %>
+
+  <p>
+    <%= f.label :day_of_week, "曜日" %><br>
+    <%= f.select :day_of_week, MeetingsHelper::WDAY_JA.each_with_index.map { |name, i| [ name, i ] } %>
+  </p>
+  <p>
+    <%= f.label :start_time, "開始時刻" %>
+    <%= f.time_field :start_time, step: 300, required: true %>
+  </p>
+  <p>
+    <%= f.label :end_time, "終了時刻" %>
+    <%= f.time_field :end_time, step: 300, required: true %>
+  </p>
+  <% if rule_type == "block" %>
+    <p>
+      <%= f.label :label, "ラベル（任意）" %><br>
+      <%= f.text_field :label, placeholder: "例：昼休み" %>
+    </p>
+  <% end %>
+
+  <%= f.submit tenant_rule.persisted? ? "更新する" : "追加する" %>
+<% end %>

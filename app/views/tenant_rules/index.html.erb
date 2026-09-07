@@ -1,0 +1,96 @@
+<% content_for :title, "テナント設定" %>
+
+<main class="tenant-rules-index">
+  <h1>テナント設定</h1>
+  <%= render "layouts/settings_nav" %>
+
+  <% if flash[:notice] %><p class="hint"><%= flash[:notice] %></p><% end %>
+  <% if flash[:alert] %><p class="flash-alert" role="alert"><%= flash[:alert] %></p><% end %>
+
+  <p class="hint">
+    テナント全体（＝全メンバー共通）の予約可能・不可時間です。個人ごとの設定はここでは扱いません。
+  </p>
+
+  <%# --- 営業時間（allow / F-11）------------------------------------------- %>
+  <section class="settings-section">
+    <h2>営業時間</h2>
+    <p class="hint">
+      予約できる時間帯です（BR-12：個人設定があれば積集合で絞られ、個人設定でここを広げることはできません）。
+      時間帯を登録していない曜日は「営業日外」となり、その日は終日予約できません。
+      昼休みなど途中の除外は営業時間を分割せず、下の固定ブロックで指定します。
+    </p>
+
+    <p><%= link_to "＋ 営業時間を追加", new_tenant_rule_path(rule_type: "allow"), class: "btn" %></p>
+
+    <div class="card">
+      <table class="users-table">
+        <thead>
+          <tr><th>曜日</th><th>時間帯</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% by_wday = @allow_rules.group_by(&:day_of_week) %>
+          <% (0..6).each do |wday| %>
+            <% rules = by_wday[wday] || [] %>
+            <% if rules.empty? %>
+              <tr>
+                <td><%= MeetingsHelper::WDAY_JA[wday] %></td>
+                <td class="is-muted">営業日外</td>
+                <td></td>
+              </tr>
+            <% else %>
+              <% rules.each_with_index do |rule, i| %>
+                <tr>
+                  <td><%= MeetingsHelper::WDAY_JA[wday] if i.zero? %></td>
+                  <td><%= tenant_rule_range(rule) %></td>
+                  <td class="users-table__actions">
+                    <%= link_to "編集", edit_tenant_rule_path(rule) %>
+                    <%= button_to "削除", tenant_rule_path(rule), method: :delete,
+                          data: { turbo_confirm: "#{MeetingsHelper::WDAY_JA[wday]} #{tenant_rule_range(rule)} の営業時間を削除しますか？（この曜日の時間帯がすべて無くなると営業日外になります）" },
+                          class: "link-btn" %>
+                  </td>
+                </tr>
+              <% end %>
+            <% end %>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <%# --- 固定ブロック（block / F-12・F-13）--------------------------------- %>
+  <section class="settings-section">
+    <h2>固定ブロック</h2>
+    <p class="hint">
+      営業時間の中で予約を受け付けない時間帯です（BR-12：個人設定と和集合で効き、個人設定でここを緩めることはできません）。
+      同じ曜日に複数登録できます。
+    </p>
+
+    <p><%= link_to "＋ 固定ブロックを追加", new_tenant_rule_path(rule_type: "block"), class: "btn" %></p>
+
+    <% if @block_rules.empty? %>
+      <p class="hint">固定ブロックはまだありません。</p>
+    <% else %>
+      <div class="card">
+        <table class="users-table">
+          <thead>
+            <tr><th>曜日</th><th>時間帯</th><th>ラベル</th><th></th></tr>
+          </thead>
+          <tbody>
+            <% @block_rules.each do |rule| %>
+              <tr>
+                <td><%= MeetingsHelper::WDAY_JA[rule.day_of_week] %></td>
+                <td><%= tenant_rule_range(rule) %></td>
+                <td><%= rule.label %></td>
+                <td class="users-table__actions">
+                  <%= link_to "編集", edit_tenant_rule_path(rule) %>
+                  <%= button_to "削除", tenant_rule_path(rule), method: :delete,
+                        data: { turbo_confirm: "この固定ブロックを削除しますか？" }, class: "link-btn" %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </section>
+</main>

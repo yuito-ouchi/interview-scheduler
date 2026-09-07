@@ -9,15 +9,20 @@
 [ MeetingAttendee, CalendarEvent, Meeting, AvailabilityRule, User ].each(&:delete_all)
 
 # --- メンバー ----------------------------------------------------------
-# 主催者2名（うち1名はミーティングにも出る兼任）
-op1 = User.create!(name: "採用 花子", email: "hanako@example.com", operator: true,  participant: true)
-op2 = User.create!(name: "調整 太郎", email: "taro@example.com",   operator: true,  participant: false)
+# 全員共通の開発用パスワード。本番運用は想定していない（CLAUDE.md参照）。
+DEV_PASSWORD = "password1234"
+
+# 主催者2名（うち1名はミーティングにも出る兼任）。花子は設定画面を扱う admin。
+op1 = User.create!(name: "採用 花子", email: "hanako@example.com", password: DEV_PASSWORD,
+                    operator: true,  participant: true,  admin: true)
+op2 = User.create!(name: "調整 太郎", email: "taro@example.com",   password: DEV_PASSWORD,
+                    operator: true,  participant: false, admin: false)
 
 # 参加者4名
-iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com",    participant: true)
-iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com",   participant: true)
-iv3 = User.create!(name: "鈴木 三郎", email: "suzuki@example.com", participant: true)
-iv4 = User.create!(name: "田中 四郎", email: "tanaka@example.com", participant: true)
+iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com",    password: DEV_PASSWORD, participant: true)
+iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com",   password: DEV_PASSWORD, participant: true)
+iv3 = User.create!(name: "鈴木 三郎", email: "suzuki@example.com", password: DEV_PASSWORD, participant: true)
+iv4 = User.create!(name: "田中 四郎", email: "tanaka@example.com", password: DEV_PASSWORD, participant: true)
 
 # --- テナント全体の営業時間ルール（user_id: nil）----------------------
 # 平日 10:00-18:00 を allow、12:00-13:00 を block（昼休み）
@@ -66,7 +71,8 @@ ev.(iv3, "作業ブロック",  11, "14:00", "17:00")       # 来週 金
 
 # --- サマリ ---------------------------------------------------------
 puts "seed 完了"
-puts "  users: #{User.count}（operator: #{User.operators.count} / participant: #{User.participants.count}）"
+puts "  users: #{User.count}（operator: #{User.operators.count} / participant: #{User.participants.count} / admin: #{User.admins.count}）"
+puts "  ログイン: 全員パスワード「#{DEV_PASSWORD}」。例: #{op1.email} / #{DEV_PASSWORD}（admin）、#{iv1.email} / #{DEV_PASSWORD}"
 puts "  availability_rules: #{AvailabilityRule.count}（allow #{AvailabilityRule.allows.count} / block #{AvailabilityRule.blocks.count}, すべてテナント全体）"
 puts "  calendar_events: #{CalendarEvent.count}（うち終日 #{CalendarEvent.where(all_day: true).count}, すべて external）"
 puts "  今週の月曜 = #{monday}"

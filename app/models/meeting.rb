@@ -20,10 +20,11 @@ class Meeting < ApplicationRecord
                                  message: "はhttp(s)から始まるURLを指定してください" },
             allow_blank: true
   # §9.3-1：空き判定は「予定と重なるか」しか見ないため、過去日を指定すると
-  # 全員空きと出てしまう。作成時に開始が未来であることを別途担保する。
+  # 全員空きと出てしまう。作成時だけでなく、F-25で変更するときも同じ穴が
+  # あるため on: :update も対象にする。
   validates :start_at, comparison: { greater_than: -> { Time.current },
                                      message: "は現在より後の日時にしてください" },
-            on: :create, if: -> { start_at.present? }
+            on: %i[create update], if: -> { start_at.present? }
 
   scope :upcoming, -> { where(start_at: Time.current..).order(:start_at) }
 

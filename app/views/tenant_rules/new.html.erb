@@ -1,0 +1,12 @@
+<% content_for :title, "#{tenant_rule_type_name(@rule_type)}を追加" %>
+
+<main class="users-new">
+  <h1><%= tenant_rule_type_name(@rule_type) %>を追加</h1>
+  <%= render "layouts/settings_nav" %>
+
+  <div class="card">
+    <%= render "form", tenant_rule: @tenant_rule, rule_type: @rule_type %>
+  </div>
+
+  <p><%= link_to "← テナント設定に戻る", tenant_rules_path %></p>
+</main>

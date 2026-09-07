@@ -1,0 +1,133 @@
+<% content_for :title, "予約を変更" %>
+
+<main class="meetings-edit">
+  <h1>予約を変更</h1>
+
+  <p class="hint">
+    現在の参加者：<%= @meeting.attendees.map(&:name).join("・") %>
+    ／ 右のサイドバーで選び直せます（外した人のカレンダーからは、この予定の占有も消えます）。
+  </p>
+
+  <%# 画面①と同じ週カレンダーとサイドバーで、空き状況を見ながら日時と参加者を
+      選び直せる（判断メモ D-9・D-14）。空き帯をクリックすると、この edit ページ
+      自身に start_at/end_at 付きで戻り、下のフォームの日付・開始時刻に反映される
+      （保存はまだしない）。 %>
+  <div class="meetings-layout">
+    <div class="meetings-layout__main">
+      <%# 週送り・空き帯クリックのどちらでも、選択中の参加者（user_ids）を引き継ぐ。
+          引き継がないと params[:user_ids] が消え、edit_user_ids が「初回表示」と
+          みなして現在の出席者に戻ってしまう。 %>
+      <%= render "week_grid",
+            week_path: ->(date) { edit_meeting_path(@meeting, week_of: date.iso8601, duration: @duration,
+                                                     user_ids: @user_ids) },
+            slot_path: ->(start_at, end_at) {
+              edit_meeting_path(@meeting, week_of: @week_of.to_date.iso8601, duration: @duration,
+                                 user_ids: @user_ids,
+                                 start_at: start_at.iso8601, end_at: end_at.iso8601)
+            } %>
+    </div>
+
+    <aside class="meetings-layout__sidebar">
+      <%= form_with url: edit_meeting_path(@meeting), method: :get, class: "search-panel card" do %>
+        <div class="search-panel__section">
+          <h2>参加者（1名以上）</h2>
+          <p class="search-panel__hint">チェックすると即座にカレンダーが更新されます</p>
+          <%# 全部外したときも user_ids キーが送られるようにする空の値。これが無いと
+              「全部外した」と「初回表示」を区別できない（edit_user_ids）。 %>
+          <%= hidden_field_tag "user_ids[]", "", id: nil %>
+          <div class="member-panel__list">
+            <% @participants.each do |user| %>
+              <label class="member-panel__item">
+                <%= check_box_tag "user_ids[]", user.id, @user_ids.include?(user.id),
+                      id: "edit_user_ids_#{user.id}", onchange: "this.form.requestSubmit()" %>
+                <%= user.name %>
+              </label>
+            <% end %>
+          </div>
+        </div>
+
+        <div class="search-panel__section">
+          <%= label_tag :duration, "所要時間（分）", for: "duration_edit" %>
+          <p class="search-panel__hint">変更すると即座にカレンダーが更新されます</p>
+          <%= number_field_tag :duration, @duration, min: 5, step: 1,
+                list: "duration_presets_edit", id: "duration_edit",
+                class: "duration-input", onchange: "this.form.requestSubmit()" %>
+          <datalist id="duration_presets_edit">
+            <option value="15"></option>
+            <option value="30"></option>
+            <option value="45"></option>
+            <option value="60"></option>
+            <option value="90"></option>
+          </datalist>
+        </div>
+
+        <%# 週送りはカレンダー側のリンクで行う。ここでは表示中の週だけ引き継ぐ %>
+        <%= hidden_field_tag :week_of, @week_of.to_date.iso8601 %>
+        <%# 参加者や所要時間を変えても、いま下のフォームに出ている日時を保つ
+            （引き継がないと、空き帯で選び直した日時が保存前に元の予約日時へ戻る）。 %>
+        <% if @meeting.start_at.present? %>
+          <%= hidden_field_tag :start_at, @meeting.start_at.iso8601 %>
+        <% end %>
+      <% end %>
+    </aside>
+  </div>
+
+  <div class="card">
+    <%= form_with model: @meeting, url: meeting_path(@meeting), method: :patch, class: "booking__form" do |f| %>
+      <% if @meeting.errors.any? %>
+        <ul class="errors">
+          <% @meeting.errors.full_messages.each do |msg| %>
+            <li><%= msg %></li>
+          <% end %>
+        </ul>
+      <% end %>
+      <% if @booking_error %>
+        <p class="flash-alert" role="alert"><%= @booking_error %></p>
+      <% end %>
+
+      <%# サイドバーで選んだ参加者を PATCH に載せる。update はこの値で再判定し、
+          出席者と占有（calendar_events）を作り直す（D-14）。 %>
+      <%= hidden_field_tag "user_ids[]", "", id: nil %>
+      <% @user_ids.each do |id| %>
+        <%= hidden_field_tag "user_ids[]", id, id: nil %>
+      <% end %>
+
+      <p>
+        <%= label_tag :date, "日付" %>
+        <%= date_field_tag :date, @meeting.start_at.to_date.iso8601, required: true %>
+      </p>
+      <p>
+        <%= label_tag :start_time, "開始時刻" %>
+        <%= time_field_tag :start_time, @meeting.start_at.strftime("%H:%M"), step: 300, required: true %>
+      </p>
+      <p>
+        <%= label_tag :duration, "所要時間（分）" %>
+        <%= number_field_tag :duration, @duration, min: 5, step: 1, required: true, class: "duration-input" %>
+      </p>
+
+      <p>
+        <%= f.label :guest_name, "ゲスト名" %><br>
+        <%= f.text_field :guest_name, required: true %>
+      </p>
+      <div data-controller="location-type">
+        <p>
+          <%= f.label :location_type, "実施方法" %><br>
+          <%= f.select :location_type, [ [ "オンライン", "online" ], [ "対面", "onsite" ] ],
+                {}, data: { location_type_target: "select", action: "change->location-type#toggle" } %>
+        </p>
+        <p data-location-type-target="onlineField">
+          <%= f.label :meet_url, "会議URL（任意）" %><br>
+          <%= f.url_field :meet_url %>
+        </p>
+        <p data-location-type-target="onsiteField">
+          <%= f.label :location_text, "場所（任意）" %><br>
+          <%= f.text_field :location_text %>
+        </p>
+      </div>
+
+      <%= f.submit "変更する" %>
+    <% end %>
+  </div>
+
+  <p><%= link_to "← 予約詳細に戻る", @meeting %></p>
+</main>

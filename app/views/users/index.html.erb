@@ -1,0 +1,37 @@
+<% content_for :title, "メンバー管理" %>
+
+<main class="users-index">
+  <h1>メンバー管理</h1>
+  <%= render "layouts/settings_nav" %>
+
+  <% if flash[:notice] %><p class="hint"><%= flash[:notice] %></p><% end %>
+  <% if flash[:alert] %><p class="flash-alert" role="alert"><%= flash[:alert] %></p><% end %>
+
+  <p><%= link_to "＋ メンバーを追加", new_user_path, class: "btn" %></p>
+
+  <div class="card">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>氏名</th><th>メールアドレス</th><th>主催者</th><th>参加者</th><th>管理者</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% @users.each do |user| %>
+          <tr>
+            <td><%= user.name %></td>
+            <td><%= user.email %></td>
+            <td><%= "✓" if user.operator? %></td>
+            <td><%= "✓" if user.participant? %></td>
+            <td><%= "✓" if user.admin? %></td>
+            <td class="users-table__actions">
+              <%= link_to "編集", edit_user_path(user) %>
+              <%= button_to "削除", user_path(user), method: :delete,
+                    data: { turbo_confirm: "#{user.name} を削除しますか？" }, class: "link-btn" %>
+            </td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+</main>

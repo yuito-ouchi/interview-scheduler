@@ -1,25 +1,33 @@
-<%= turbo_frame_tag "week_calendar" do %>
   <% if @user_ids.blank? %>
-    <p class="hint">参加者を選んで「カレンダーを表示」を押してください。</p>
+    <p class="hint">参加者を1名以上選んでください。</p>
 
   <% elsif @users.blank? %>
     <p class="hint">選択された参加者が見つかりません。選び直してください。</p>
 
   <% else %>
-    <% view_from, view_to = calendar_bounds(@days) %>
+    <%# 営業時間をまたぐ予定（例：9-19時の外部予定）がある日は、その分も表示
+        レンジに含める（含めないと segment_style が負の top を返し、
+        .week-grid__body の overflow:hidden で予定が見切れて表示される）。
+        日ごとの予定を先に集めておき、以降のループ内でも使い回す。%>
+    <% events_by_date = @days.reject(&:closed?).each_with_object({}) { |day, h| h[day.date] = day_events(@users, day.date) } %>
+    <% timed_events = events_by_date.values.flatten.reject { |ev| ev[:all_day] } %>
+    <% view_from, view_to = calendar_bounds(@days, timed_events) %>
+    <% body_height = view_from && ((view_to - view_from) * MeetingsHelper::PX_PER_MIN).round %>
+    <%# 正時の横罫（.week-grid__body の背景）を、表示開始が正時でない場合でも
+        時刻軸ラベルに合わせてずらす。開始が正時なら 0。%>
+    <% hour_line_offset = view_from ? -(view_from % 60) * MeetingsHelper::PX_PER_MIN : 0 %>
+    <%# 週内に1件でも終日予定があれば「終日」行を出す（無い週は行ごと省略）。 %>
+    <% has_all_day = events_by_date.values.any? { |evs| evs.any? { |ev| ev[:all_day] } } %>
 
     <nav class="week-nav">
-      <%= link_to "← 前週", calendar_meetings_path(week_of: (@week_of.to_date - 7).iso8601,
-            user_ids: @user_ids, duration: @duration) %>
+      <%= link_to "← 前週", week_path.call(@week_of.to_date - 7) %>
       <span class="week-nav__label"><%= @week_of.to_date.strftime("%Y年%-m月%-d日") %> の週 ／ 所要 <%= @duration %> 分 ／
         <%= @users.map(&:name).join("・") %></span>
-      <%= link_to "翌週 →", calendar_meetings_path(week_of: (@week_of.to_date + 7).iso8601,
-            user_ids: @user_ids, duration: @duration) %>
+      <%= link_to "翌週 →", week_path.call(@week_of.to_date + 7) %>
     </nav>
 
     <p class="week-legend">
       <span class="dot dot--free">空き</span>
-      <span class="dot dot--near">あと1人</span>
       <span class="dot dot--busy">予定あり</span>
       <span class="dot dot--blocked">予約不可</span>
       <span class="dot dot--closed">営業日外</span>
@@ -28,64 +36,82 @@
     <% if @days.all? { |d| d.free_windows.empty? } %>
       <p class="hint hint--empty">
         この週に全員が空く枠はありません。
-        <%= link_to "翌週を確認", calendar_meetings_path(week_of: (@week_of.to_date + 7).iso8601,
-              user_ids: @user_ids, duration: @duration) %>
+        <%= link_to "翌週を確認", week_path.call(@week_of.to_date + 7) %>
       </p>
     <% end %>
 
     <div class="week-grid">
+      <%# 左端の時刻軸。日カラムと同じ3段（見出し／終日／本体）で高さをそろえる。 %>
+      <div class="week-grid__axis">
+        <div class="week-grid__axis-head" aria-hidden="true"></div>
+        <% if has_all_day %>
+          <div class="week-grid__axis-allday">終日</div>
+        <% end %>
+        <% if view_from.nil? %>
+          <div class="week-grid__axis-body"></div>
+        <% else %>
+          <div class="week-grid__axis-body" style="height:<%= body_height %>px">
+            <% ticks = hour_ticks(view_from, view_to) %>
+            <% ticks.each do |hour| %>
+              <%# 表示レンジの先頭・末尾の正時は translateY(-50%) だと文字の半分が
+                  枠外にはみ出して見切れるため、両端だけ別クラスでアンカーし直す。 %>
+              <% edge = hour == ticks.first ? " week-grid__tick--first" : (hour == ticks.last ? " week-grid__tick--last" : "") %>
+              <span class="week-grid__tick<%= edge %>" style="top:<%= tick_top(hour, view_from).round(1) %>px"><%= "#{hour}:00" %></span>
+            <% end %>
+          </div>
+        <% end %>
+      </div>
+
       <% @days.each do |day| %>
         <section class="week-grid__day">
           <header class="week-grid__head">
             <%= day.date.strftime("%-m/%-d") %>（<%= wday_ja(day.date) %>）
           </header>
 
+          <% if has_all_day %>
+            <div class="week-grid__allday<%= ' week-grid__allday--closed' if day.closed? %>">
+              <% (events_by_date[day.date] || []).select { |ev| ev[:all_day] }.each do |ev| %>
+                <div class="seg seg--busy seg--allday"><%= ev[:name] %>／<%= ev[:title] %></div>
+              <% end %>
+            </div>
+          <% end %>
+
           <% if day.closed? || view_from.nil? %>
-            <div class="week-grid__body week-grid__body--closed">営業日外</div>
+            <%# 営業日の列と高さを揃え、時刻軸と横並びで見比べられるようにする
+                （以前は自動高さの短い箱で、他列だけ縦に長く見えた）。 %>
+            <div class="week-grid__body week-grid__body--closed"
+                 style="<%= "height:#{body_height}px" if body_height %>">営業日外</div>
           <% else %>
-            <div class="week-grid__body" style="height:<%= ((view_to - view_from) * MeetingsHelper::PX_PER_MIN).round %>px">
+            <div class="week-grid__body" style="height:<%= body_height %>px;background-position-y:<%= hour_line_offset.round(1) %>px">
               <% day.free_windows.each do |w| %>
-                <div class="seg seg--free"
-                     style="<%= segment_style(view_from, w[:start_at], w[:end_at]) %>">
-                  <span class="seg__label"><%= hhmm(w[:start_at]) %>–<%= hhmm(w[:end_at]) %> 空き</span>
-                  <span class="seg__picks">
-                    <% window_starts(w).each do |t| %>
-                      <%= link_to hhmm(t), new_meeting_path(
-                            user_ids: @user_ids, duration: @duration,
-                            week_of: @week_of.to_date.iso8601,
-                            start_at: t.iso8601, end_at: (t + @duration.minutes).iso8601),
-                            data: { turbo_frame: "booking_form" }, class: "seg__pick" %>
-                    <% end %>
-                  </span>
-                </div>
-              <% end %>
-
-              <% all_day_events, timed_events = day_events(@users, day.date).partition { |ev| ev[:all_day] } %>
-
-              <% all_day_events.each do |ev| %>
-                <div class="seg seg--busy seg--allday">
-                  <%= ev[:name] %>／<%= ev[:title] %>（終日）
-                </div>
-              <% end %>
-
-              <%# あと1人を除けば空く区間（ニアミス）。ブロックしている本人の
-                  「予定あり」ブロックと同じ時間帯に来るため、同じ列詰めに混ぜる。 %>
-              <% near_items = day.near_windows.map { |w| { start_at: w[:start_at], end_at: w[:end_at], blocking_user: w[:blocking_user] } } %>
-
-              <%# 別々の人の予定・ニアミス枠が同じ時間帯に重なることがあるため、列に分けて横に並べる %>
-              <% layout_busy(timed_events + near_items).each do |ev| %>
-                <% if ev[:blocking_user] %>
-                  <div class="seg seg--near"
-                       style="<%= segment_style(view_from, ev[:start_at], ev[:end_at]) %>;<%= column_style(ev[:col], ev[:col_count]) %>">
-                    <span class="seg__label">あと1人（<%= ev[:blocking_user].name %>）で空き</span>
-                  </div>
-                <% else %>
-                  <div class="seg seg--busy"
-                       style="<%= segment_style(view_from, ev[:start_at], ev[:end_at]) %>;<%= column_style(ev[:col], ev[:col_count]) %>">
-                    <%= ev[:name] %>／<%= ev[:title] %>
-                    <small><%= hhmm(ev[:start_at]) %>–<%= hhmm(ev[:end_at]) %></small>
-                  </div>
+                <%# 空き帯そのものをクリック対象にする。縦位置＝時刻（時刻軸で読める）。
+                    クリックしたY位置を slot_picker が5分丸めして start_at に反映する。
+                    href は帯の先頭時刻で、JS無効時やキーボード操作でも予約フォームを開ける
+                    フォールバックとして機能する（§6.6・§4.2）。 %>
+                <%= link_to slot_path.call(w[:start_at], w[:start_at] + @duration.minutes),
+                      class: "seg seg--free",
+                      style: segment_style(view_from, w[:start_at], w[:end_at]),
+                      title: "#{hhmm(w[:start_at])}〜#{hhmm(w[:end_at])} の中でクリックした時刻から開始",
+                      data: {
+                        turbo_frame: local_assigns[:slot_turbo_frame],
+                        controller: "slot-picker", action: "click->slot-picker#open",
+                        "slot-picker-start-min-value": minutes_of_day(w[:start_at]),
+                        "slot-picker-last-start-min-value": minutes_of_day(w[:last_start]),
+                        "slot-picker-duration-value": @duration
+                      }.compact do %>
+                  <span class="seg__label">空き</span>
+                  <span class="seg__range"><%= hhmm(w[:start_at]) %>〜<%= hhmm(w[:end_at]) %></span>
                 <% end %>
+              <% end %>
+
+              <%# 終日予定は上部の「終日」行に出すため、本体は時間指定の予定のみ。
+                  別々の人の予定が同じ時間帯に重なることがあるため、列に分けて横に並べる。 %>
+              <% layout_busy((events_by_date[day.date] || []).reject { |ev| ev[:all_day] }).each do |ev| %>
+                <div class="seg seg--busy"
+                     style="<%= segment_style(view_from, ev[:start_at], ev[:end_at]) %>;<%= column_style(ev[:col], ev[:col_count]) %>">
+                  <%= ev[:name] %>／<%= ev[:title] %>
+                  <small><%= hhmm(ev[:start_at]) %>–<%= hhmm(ev[:end_at]) %></small>
+                </div>
               <% end %>
 
               <% day_blocks(@users, @tenant_rules, day.date).each do |bl| %>
@@ -100,4 +126,3 @@
       <% end %>
     </div>
   <% end %>
-<% end %>

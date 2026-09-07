@@ -7,4 +7,8 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
   parallelize(workers: 1)
 
   driven_by :selenium, using: :headless_chrome, screen_size: [ 1400, 1400 ]
+
+  # デフォルト2秒だと、チェックボックスのonchange自動送信やTurbo Frameの
+  # 差し替えがマシン負荷次第で間に合わずflakyになることがあったため延長する。
+  Capybara.default_max_wait_time = 5
 end

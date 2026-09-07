@@ -1,77 +1,87 @@
 require "test_helper"
 
-# 簡易ログイン（F-05 / 仕様書 §6.2）。パスワード認証はしない。
+# ログイン（F-05 / 仕様書 §6.2）。Devise（判断メモ D-12）。
+# ここだけは Devise::Test::IntegrationHelpers#sign_in を使わず、実際に
+# user_session_path へ POST する（ログインフロー自体を検証する対象のため）。
 class SessionsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @operator     = User.create!(name: "採用 花子", email: "op1@example.com", operator: true)
-    @operator2    = User.create!(name: "調整 太郎", email: "op2@example.com", operator: true)
-    @participant  = User.create!(name: "参加 次郎", email: "iv@example.com", operator: false, participant: true)
+    @operator     = User.create!(name: "採用 花子", email: "op1@example.com", password: "password1234", operator: true)
+    @operator2    = User.create!(name: "調整 太郎", email: "op2@example.com", password: "password1234", operator: true)
+    @participant  = User.create!(name: "参加 次郎", email: "iv@example.com", password: "password1234", operator: false, participant: true)
   end
 
-  test "new は operator だけを選択肢に出す" do
-    get login_path
+  test "new は未ログインならログインフォームを出す" do
+    get new_user_session_path
     assert_response :success
-    assert_select "select#user_id option", text: @operator.name
-    assert_select "select#user_id option", text: @operator2.name
-    assert_select "select#user_id option", text: @participant.name, count: 0
+    assert_select "input#user_email"
+    assert_select "input#user_password"
   end
 
-  test "create は operator ならセッションに乗せて root へ" do
-    post login_path, params: { user_id: @operator.id }
+  test "create は email + 正しい password の operator ならログインしてrootへ" do
+    post user_session_path, params: { user: { email: @operator.email, password: "password1234" } }
     assert_redirected_to root_path
-    assert_equal @operator.id, session[:user_id]
+
+    get root_path
+    assert_response :success
   end
 
-  test "create は operator でない user_id を弾く" do
-    post login_path, params: { user_id: @participant.id }
-    assert_redirected_to login_path
-    assert_nil session[:user_id]
-    assert_equal "操作者を選択してください", flash[:alert]
+  # Devise標準の失敗時挙動：リダイレクトではなく sessions#new を422で描き直す
+  # （Warden::Manager のfailure app。判断メモ D-12）。
+  test "create はパスワードが違えば弾く" do
+    post user_session_path, params: { user: { email: @operator.email, password: "wrong-password" } }
+    assert_response :unprocessable_entity
+    assert_match(/メールまたはパスワードが違います/, response.body)
+
+    get root_path
+    assert_redirected_to new_user_session_path
   end
 
-  test "create は存在しない id・空を弾く" do
-    post login_path, params: { user_id: "" }
-    assert_redirected_to login_path
-    assert_nil session[:user_id]
+  test "create は operator でない人はパスワードが合っていても弾く" do
+    post user_session_path, params: { user: { email: @participant.email, password: "password1234" } }
+    assert_response :unprocessable_entity
 
-    post login_path, params: { user_id: 999_999 }
-    assert_nil session[:user_id]
+    get root_path
+    assert_redirected_to new_user_session_path
+  end
+
+  test "create は存在しないメールアドレス・空を弾く" do
+    post user_session_path, params: { user: { email: "", password: "" } }
+    assert_response :unprocessable_entity
+
+    post user_session_path, params: { user: { email: "nobody@example.com", password: "password1234" } }
+    assert_response :unprocessable_entity
   end
 
   test "未ログインで保護ページ（root = meetings#new）を開くと login へ飛ぶ" do
     get root_path
-    assert_redirected_to login_path
+    assert_redirected_to new_user_session_path
   end
 
   test "ログイン後は保護ページを開ける" do
-    post login_path, params: { user_id: @operator.id }
+    post user_session_path, params: { user: { email: @operator.email, password: "password1234" } }
     get new_meeting_path
     assert_response :success
   end
 
   test "operator を後から false にされたら、その時点でログイン状態が切れる（§6.2 の二重条件）" do
-    post login_path, params: { user_id: @operator.id }
-    assert_equal @operator.id, session[:user_id]
-
-    # ログイン済みなので確認表示になる
-    get login_path
-    assert_select "form[action=?]", login_path, count: 0
-    assert_match(/操作中です/, @response.body)
+    post user_session_path, params: { user: { email: @operator.email, password: "password1234" } }
+    get root_path
+    assert_response :success
 
     @operator.update!(operator: false)
 
-    # current_user が nil に落ち、選択フォームが戻る（session の id はまだ残っている）
-    get login_path
-    assert_response :success
-    assert_select "form[action=?]", login_path
-    assert_select "select#user_id"
+    # Devise は毎リクエストDBを引き直すわけではないため、application_controller.rb の
+    # require_operator! が無いとここで通ってしまう（判断メモ D-12）。
+    get root_path
+    assert_redirected_to new_user_session_path
   end
 
-  test "ログイン済みでも ?switch=1 なら選択フォームを出す（切替）" do
-    post login_path, params: { user_id: @operator.id }
+  test "destroy はセッションを破棄する" do
+    post user_session_path, params: { user: { email: @operator.email, password: "password1234" } }
+    delete destroy_user_session_path
+    assert_redirected_to root_path # Devise標準：sign_out後はroot_pathへ
 
-    get login_path(switch: 1)
-    assert_response :success
-    assert_select "select#user_id"
+    get root_path
+    assert_redirected_to new_user_session_path # rootも認証必須なので、そのままlogin待ちになる
   end
 end

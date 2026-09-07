@@ -13,8 +13,8 @@ class WeeklySlotFinderTest < ActiveSupport::TestCase
       @tenant_rules << AvailabilityRule.create!(user_id: nil, day_of_week: wday,
         start_time: "12:00", end_time: "13:00", rule_type: "block", label: "昼休み")
     end
-    @a = User.create!(name: "参加 A", email: "a@example.com", participant: true)
-    @b = User.create!(name: "参加 B", email: "b@example.com", participant: true)
+    @a = User.create!(name: "参加 A", email: "a@example.com", password: "password1234", participant: true)
+    @b = User.create!(name: "参加 B", email: "b@example.com", password: "password1234", participant: true)
   end
 
   def finder(users, duration: 60, week_of: MONDAY)
@@ -87,6 +87,29 @@ class WeeklySlotFinderTest < ActiveSupport::TestCase
 
     covering = windows.find { |w| w[:start_at] <= Time.zone.parse("2026-09-02 14:00") && w[:end_at] > Time.zone.parse("2026-09-02 14:00") }
     assert_nil covering, "B が埋まっている 14:00 台を含む空き帯があってはならない"
+  end
+
+  test "所要時間より短い空き時間は枠として出さない（所要時間で下限フィルタする）" do
+    # 10:00-12:00 の午前帯のうち 10:45 以降を埋め、実質の空きは 10:00-10:45（45分）にする。
+    event!(@a, "2026-09-02", "10:45", "12:00", title: "会議")
+
+    windows_for = ->(duration) do
+      finder([ @a ], duration: duration).call.find { |d| d.date == Date.new(2026, 9, 2) }.free_windows
+    end
+
+    # 45分以内に収まる所要時間は、45分の空きをそのまま枠として出す。
+    [ 15, 30, 45 ].each do |duration|
+      am = windows_for.(duration).find { |w| w[:start_at] == Time.zone.parse("2026-09-02 10:00") }
+      assert am, "所要#{duration}分は45分の空きに収まるはずなのに枠が無い"
+      assert_equal Time.zone.parse("2026-09-02 10:45"), am[:end_at]
+    end
+
+    # 45分に収まらない所要時間（46分・60分）は、この45分の空きを枠として出さない
+    # （中途半端に切り詰めて表示するのではなく、そもそも表示しない）。
+    [ 46, 60 ].each do |duration|
+      am = windows_for.(duration).find { |w| w[:start_at] == Time.zone.parse("2026-09-02 10:00") }
+      assert_nil am, "所要#{duration}分は45分の空きに収まらないので枠が出てはいけない"
+    end
   end
 
   test "終日予定のある日は空き帯が消える" do

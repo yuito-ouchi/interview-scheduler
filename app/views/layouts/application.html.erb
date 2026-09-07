@@ -31,10 +31,17 @@
             <span class="topbar__mark">MS</span>
             ミーティング調整
           </div>
+          <nav class="topbar__nav">
+            <%= link_to "ミーティングを組む", new_meeting_path %>
+            <%= link_to "予約一覧", meetings_path %>
+            <% if current_user.admin? %>
+              <%= link_to "設定", users_path %>
+            <% end %>
+          </nav>
           <div class="topbar__user">
             <span class="topbar__avatar"><%= current_user.name.first %></span>
             <%= current_user.name %>
-            <%= link_to "切り替える", login_path(switch: 1), class: "topbar__switch" %>
+            <%= button_to "ログアウト", destroy_user_session_path, method: :delete, class: "topbar__switch topbar__logout-btn" %>
           </div>
         </div>
       </header>

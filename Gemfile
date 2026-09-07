@@ -17,8 +17,13 @@ gem "stimulus-rails"
 # Build JSON APIs with ease [https://github.com/rails/jbuilder]
 gem "jbuilder"
 
-# Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
-# gem "bcrypt", "~> 3.1.7"
+# 認証（判断メモ D-12：D-1のhas_secure_passwordから移行）
+gem "devise"
+gem "devise-i18n" # Deviseの標準メッセージを日本語化する（アプリ全体が日本語UIのため）
+
+# has_secure_password は使わなくなったが、Deviseのdatabase_authenticatableも
+# bcryptを使うため引き続き必要
+gem "bcrypt", "~> 3.1.7"
 
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]

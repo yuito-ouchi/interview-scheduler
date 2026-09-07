@@ -1,0 +1,52 @@
+<% content_for :title, "予約一覧" %>
+
+<main class="meetings-index">
+  <h1>予約一覧</h1>
+
+  <% if flash[:notice] %><p class="hint"><%= flash[:notice] %></p><% end %>
+
+  <%# ゲスト名・参加者名・登録者名を横断検索する（判断メモ D-10）。 %>
+  <%= form_with url: meetings_path, method: :get, class: "meetings-search" do %>
+    <%= search_field_tag :q, @query, placeholder: "ゲスト名・参加者名・登録者名で検索",
+          class: "meetings-search__input" %>
+    <%= submit_tag "検索", class: "btn" %>
+    <% if @query.present? %>
+      <%= link_to "クリア", meetings_path, class: "link-btn" %>
+    <% end %>
+  <% end %>
+
+  <%# 登録者で絞り込まず全件共有表示（仕様書§6.7）。今後の予約のみ（§9.1）。 %>
+  <% if @meetings.empty? %>
+    <p class="hint">
+      <% if @query.present? %>
+        「<%= @query %>」に一致する今後の予約はありません。
+      <% else %>
+        今後の予約はありません。
+      <% end %>
+    </p>
+  <% else %>
+    <div class="card">
+      <table class="meetings-table">
+        <thead>
+          <tr><th>日時</th><th>ゲスト</th><th>参加者</th><th>登録者</th><th></th></tr>
+        </thead>
+        <tbody>
+          <% @meetings.each do |meeting| %>
+            <tr>
+              <td><%= meeting.start_at.strftime("%Y/%m/%d (%a) %-H:%M") %>–<%= meeting.end_at.strftime("%-H:%M") %></td>
+              <td><%= link_to "#{meeting.guest_name} 様", meeting %></td>
+              <td><%= meeting.attendees.map(&:name).join("・") %></td>
+              <td><%= meeting.created_by.name %></td>
+              <td class="meetings-table__actions">
+                <%= link_to "変更", edit_meeting_path(meeting) %>
+                <%= button_to "キャンセル", meeting_path(meeting), method: :delete,
+                      data: { turbo_confirm: "#{meeting.guest_name} 様とのミーティングをキャンセルしますか？" },
+                      class: "link-btn" %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</main>

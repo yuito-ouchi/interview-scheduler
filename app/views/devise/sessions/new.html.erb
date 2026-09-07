@@ -1,0 +1,33 @@
+<% content_for :title, "ログイン" %>
+
+<main class="session-new">
+  <h1>ミーティング調整</h1>
+
+  <div class="card">
+    <% if flash[:alert] %>
+      <p class="flash-alert" role="alert"><%= flash[:alert] %></p>
+    <% end %>
+    <% if flash[:notice] %>
+      <p class="hint"><%= flash[:notice] %></p>
+    <% end %>
+
+    <p>メールアドレスとパスワードでログインしてください。</p>
+
+    <%= form_for(resource, as: resource_name, url: session_path(resource_name)) do |f| %>
+      <p>
+        <%= f.label :email, "メールアドレス" %>
+        <%= f.email_field :email, required: true, autofocus: true, autocomplete: "email" %>
+      </p>
+      <p>
+        <%= f.label :password, "パスワード" %>
+        <%= f.password_field :password, required: true, autocomplete: "current-password" %>
+      </p>
+
+      <%= f.submit "ログイン" %>
+    <% end %>
+
+    <p class="session-new__links">
+      <%= link_to "アカウントをお持ちでない方はこちら（主催者・参加者の登録）", new_registration_path(resource_name) %>
+    </p>
+  </div>
+</main>

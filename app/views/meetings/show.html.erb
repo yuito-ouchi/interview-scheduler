@@ -17,12 +17,12 @@
       <dt>登録者</dt><dd><%= @meeting.created_by.name %></dd>
     </dl>
 
-    <p class="hint">
-      カレンダー上の占有（<code>calendar_events</code> / <code>source: "app"</code>）を
-      <%= @meeting.calendar_events.size %> 件作成しました。
-      次回以降の空き判定にこのミーティングが反映されます。
+    <p class="meeting-show__actions">
+      <%= link_to "続けてミーティングを組む", new_meeting_path, class: "btn" %>
+      <%= link_to "予約を変更", edit_meeting_path(@meeting) %>
+      <%= button_to "キャンセル", meeting_path(@meeting), method: :delete,
+            data: { turbo_confirm: "#{@meeting.guest_name} 様とのミーティングをキャンセルしますか？" },
+            class: "link-btn" %>
     </p>
-
-    <p><%= link_to "続けてミーティングを組む", new_meeting_path, class: "btn" %></p>
   </div>
 </main>
