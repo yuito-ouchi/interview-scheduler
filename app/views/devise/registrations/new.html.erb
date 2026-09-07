@@ -26,13 +26,13 @@
         <%= f.password_field :password, required: true, autocomplete: "new-password" %>
       </p>
 
-      <%# admin はここに置かない＝自己登録では絶対に付与しない境界
-          （ApplicationController#configure_permitted_parameters が最終防波堤）。 %>
-      <fieldset class="user-form__flags">
-        <legend>役割（複数選択可）</legend>
-        <label><%= f.check_box :operator, checked: true %> 主催者（ログインしてツールを操作できる）</label>
-        <label><%= f.check_box :participant, checked: true %> 参加者（ミーティングの候補になる）</label>
-      </fieldset>
+      <%# 権限の選択肢は置かない。登録した人は全員メンバー（ログインでき、
+          参加者候補にも並ぶ）で、admin は自己登録では絶対に付与しない
+          （ApplicationController#configure_permitted_parameters が最終防波堤）。
+          管理者にするのは既存adminのメンバー管理からのみ。判断メモ D-12・D-15。 %>
+      <p class="hint">
+        登録するとメンバーとして追加され、ミーティングの参加者候補に並びます。
+      </p>
 
       <%= f.submit "登録する" %>
     <% end %>

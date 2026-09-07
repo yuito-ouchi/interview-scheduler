@@ -72,7 +72,7 @@ class UsersController < ApplicationController
   end
 
   def user_params
-    params.expect(user: %i[name email password operator participant admin])
+    params.expect(user: %i[name email password admin])
   end
 
   # 編集時のパスワードは空欄なら変更しない（空文字を送って上書きしないための対応）。

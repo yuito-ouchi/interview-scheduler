@@ -21,10 +21,12 @@
   </p>
 
   <fieldset class="user-form__flags">
-    <legend>役割（複数選択可・仕様書§6.1）</legend>
-    <label><%= f.check_box :operator %> 主催者（ログインしてツールを操作できる）</label>
-    <label><%= f.check_box :participant %> 参加者（ミーティングの候補になる）</label>
-    <label><%= f.check_box :admin %> 管理者（この設定画面を操作できる）</label>
+    <legend>権限（仕様書§6.1）</legend>
+    <p class="search-panel__hint">
+      メンバーは全員ログインでき、ミーティングの参加者候補にも並びます。
+      管理者はそれに加えて設定（メンバー管理・テナント設定）を操作できます。
+    </p>
+    <label><%= f.check_box :admin %> 管理者</label>
   </fieldset>
 
   <%= f.submit user.persisted? ? "更新する" : "追加する" %>

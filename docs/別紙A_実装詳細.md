@@ -189,7 +189,7 @@ end
 **区間ごとにDBを叩くと480回×人数のクエリが飛ぶ。** 必ず事前読み込みしたうえで Ruby 側で判定すること。
 
 ```ruby
-users = User.where(id: ids, participant: true)
+users = User.where(id: ids)
             .includes(:availability_rules)
             .preload(calendar_events: -> { where(start_at: week_range) })
 ```
@@ -224,7 +224,7 @@ users = User.where(id: ids, participant: true)
 | 20 | **`update`：他メンバーの予定とぶつかる日時には変更できない** | 変更時の再判定（BR-06 と同じ機構）の検証 |
 | 21 | **`update`：過去日時には変更できない** | §9.3-1 の穴を `on: :update` でも塞いでいることの検証 |
 | 22 | **`destroy`：キャンセルで `calendar_events`・`meeting_attendees` も連動削除される** | F-26 ／ `dependent: :destroy` の検証 |
-| 23 | **`/users`：admin はアクセスでき、admin でない operator は root へ戻される** | `require_admin`（A-7）の検証 |
+| 23 | **`/users`：admin はアクセスでき、admin でないメンバーは root へ戻される** | `require_admin`（A-7）の検証 |
 | 24 | **登録者になっているメンバーは削除できない（`restrict_with_exception`）** | 孤児 `meetings` を作らないことの検証（判断メモ D-4） |
 
 3〜6は同じ式で処理されるが、**符号の誤りが最も出やすい箇所**のため個別にテストする。12〜14は BR-12（合成規則）の検証で、**allow と block で向きが逆**という設計を守れているかを確認する。
@@ -241,7 +241,7 @@ def confirm_booking
   return false unless @meeting.valid?(:create) # 過去日時・必須項目・区間はここで弾く
 
   ActiveRecord::Base.transaction do
-    users = User.where(id: @user_ids, participant: true)
+    users = User.where(id: @user_ids)
                 .includes(:availability_rules, :calendar_events)
                 .order(:id)
                 .to_a
@@ -350,6 +350,8 @@ end
 
 **当初は「`operator` を選ぶだけ・パスワードなし」の簡易ログインだったが、認可（A-7）とセットで `has_secure_password` に置き換えた。経緯は判断メモ D-1。**
 
+> **以下のコードは `has_secure_password` 時代のもので、現在の実装ではない。** その後 Devise へ移行し（判断メモ D-12）、`operator` フラグ自体も廃止した（判断メモ D-15）。現在はメンバー全員がログインでき、`operator` による絞り込みも `require_operator!` も存在しない。判断の経緯を残すためこのまま置いている。
+
 ```ruby
 # app/models/user.rb
 class User < ApplicationRecord
@@ -438,7 +440,7 @@ def confirm_update
 
   ActiveRecord::Base.transaction do
     own_event_ids = @meeting.calendar_events.pluck(:id)
-    users = User.where(id: @user_ids, participant: true)
+    users = User.where(id: @user_ids)
                 .includes(:availability_rules, :calendar_events).order(:id).to_a
     # BR-06 と同じく、1名も選ばれていなければ変更全体を中止する
     if users.empty?

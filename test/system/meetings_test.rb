@@ -5,9 +5,9 @@ require "application_system_test_case"
 # Minitestの単体テストでは検出できず、この種のテストで初めて拾える。
 class MeetingsTest < ApplicationSystemTestCase
   setup do
-    @operator = User.create!(name: "採用 花子", email: "op@example.com", password: "password1234", operator: true)
-    @iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com", password: "password1234", participant: true)
-    @iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com", password: "password1234", participant: true)
+    @member = User.create!(name: "採用 花子", email: "op@example.com", password: "password1234")
+    @iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com", password: "password1234")
+    @iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com", password: "password1234")
 
     (1..5).each do |wday|
       AvailabilityRule.create!(user_id: nil, day_of_week: wday,
@@ -15,7 +15,7 @@ class MeetingsTest < ApplicationSystemTestCase
     end
 
     visit new_user_session_path
-    fill_in "メールアドレス", with: @operator.email
+    fill_in "メールアドレス", with: @member.email
     fill_in "パスワード", with: "password1234"
     click_on "ログイン"
     # ログイン直後にページ遷移を待たず次の visit を呼ぶと、Set-Cookie が

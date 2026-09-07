@@ -1,6 +1,8 @@
 class User < ApplicationRecord
-  # operator = ツールを操作する / participant = ミーティングに出る / admin = 設定画面を操作できる。
-  # 兼任があるため役割で分けずフラグで持つ（仕様書 §6.1）
+  # アカウントを持つ人＝メンバー。ログインでき、ミーティングの参加者候補にも並ぶ。
+  # 区別はこの上に乗る admin（設定画面を操作できる）1つだけ（判断メモ D-15）。
+  # かつては operator（操作する）/ participant（出る）を分けていたが、兼任前提で
+  # 両方 true のアカウントしか作られず、区別が設定項目としてだけ残っていた。
   #
   # 認証はDevise（判断メモ D-12。旧D-1のhas_secure_passwordから移行）。
   # :confirmable は入れない（確認メール不要という要件そのもの）。:recoverable も
@@ -20,15 +22,5 @@ class User < ApplicationRecord
   validates :name, presence: true
   # email の presence/uniqueness/形式チェックは :validatable が提供する
 
-  scope :operators,    -> { where(operator: true) }
-  scope :participants, -> { where(participant: true) }
-  scope :admins,       -> { where(admin: true) }
-
-  # 認証の入口そのものを operator に絞る（旧 SessionsController#create の
-  # `User.find_by(email:, operator: true)` と同じ制約）。participant限定の
-  # アカウントはパスワードが合っていてもログインできない、という現行の挙動と
-  # セキュリティ姿勢をそのまま保つ（「認証は通るが権限が無い」状態を作らない）。
-  def self.find_for_database_authentication(warden_conditions)
-    find_by(email: warden_conditions[:email], operator: true)
-  end
+  scope :admins, -> { where(admin: true) }
 end

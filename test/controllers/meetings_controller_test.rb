@@ -4,9 +4,9 @@ require "test_helper"
 # 空き枠クリックから先（予約フォーム・確定）は次段階。
 class MeetingsControllerTest < ActionDispatch::IntegrationTest
   setup do
-    @operator = User.create!(name: "採用 花子", email: "op@example.com", password: "password1234", operator: true)
-    @iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com", password: "password1234", participant: true)
-    @iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com", password: "password1234", participant: true)
+    @member = User.create!(name: "採用 花子", email: "op@example.com", password: "password1234")
+    @iv1 = User.create!(name: "伊藤 一郎", email: "ito@example.com", password: "password1234")
+    @iv2 = User.create!(name: "佐藤 次郎", email: "sato@example.com", password: "password1234")
 
     (1..5).each do |wday|
       AvailabilityRule.create!(user_id: nil, day_of_week: wday,
@@ -17,7 +17,7 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
     @iv1.calendar_events.create!(source: "external", title: "部門定例",
       start_at: Time.zone.parse("2026-09-16 13:00"), end_at: Time.zone.parse("2026-09-16 14:00"))
 
-    sign_in @operator # ログイン必須（判断メモ D-12：Devise::Test::IntegrationHelpers）
+    sign_in @member # ログイン必須（判断メモ D-12：Devise::Test::IntegrationHelpers）
   end
 
   test "未ログインなら login へ" do
@@ -29,7 +29,8 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
   test "new：参加者を選ぶ前はフォームだけ、カレンダーは案内文" do
     get new_meeting_path
     assert_response :success
-    assert_select "input[type=checkbox][name=?]", "user_ids[]", count: 2
+    # D-15：メンバー全員が候補に並ぶ。ログイン中の主催者（@member）自身も含めて3名
+    assert_select "input[type=checkbox][name=?]", "user_ids[]", count: 3
     assert_select "input#duration_search[type=number]"
     assert_select "turbo-frame#week_calendar", text: /参加者を1名以上選んで/
   end
@@ -61,10 +62,16 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#week_calendar .week-nav a", text: /翌週/
   end
 
-  test "calendar：participant でない id は除外される" do
-    get calendar_meetings_path, params: { user_ids: [ @operator.id ], duration: 60 }
+  test "calendar：存在しない id は除外される" do
+    get calendar_meetings_path, params: { user_ids: [ User.maximum(:id) + 1 ], duration: 60 }
     assert_response :success
     assert_select "turbo-frame#week_calendar", text: /参加者が見つかりません/
+  end
+
+  test "calendar：主催者自身もメンバーとして選べる（D-15）" do
+    get calendar_meetings_path, params: { user_ids: [ @member.id ], duration: 60 }
+    assert_response :success
+    assert_select ".week-nav__label", text: /採用 花子/
   end
 
   test "calendar：壊れた week_of は今週にフォールバックして落ちない" do
@@ -121,7 +128,7 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
     meeting = Meeting.last
     assert_redirected_to meeting_path(meeting)
     assert_equal "山田", meeting.guest_name
-    assert_equal @operator.id, meeting.created_by_id
+    assert_equal @member.id, meeting.created_by_id
     assert_equal [ @iv1.id, @iv2.id ].sort, meeting.attendees.pluck(:id).sort
 
     events = meeting.calendar_events
@@ -238,7 +245,7 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
   test "index：登録者名で検索できる" do
     meeting = create_meeting!(start_at: "2026-09-16T10:00:00+09:00", end_at: "2026-09-16T11:00:00+09:00")
 
-    get meetings_path, params: { q: "花子" } # created_by は @operator（採用 花子）
+    get meetings_path, params: { q: "花子" } # created_by は @member（採用 花子）
 
     assert_select "a[href=?]", meeting_path(meeting)
   end
@@ -339,7 +346,7 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
 
   test "edit：user_ids を渡すと、その参加者でカレンダーを引き直す（保存はしない）" do
     iv3 = User.create!(name: "鈴木 三郎", email: "suzuki@example.com", password: "password1234",
-                        participant: true)
+                        )
     meeting = create_meeting!(start_at: "2026-09-16T10:00:00+09:00", end_at: "2026-09-16T11:00:00+09:00")
 
     get edit_meeting_path(meeting), params: { week_of: "2026-09-14", duration: 60, user_ids: [ iv3.id ] }
@@ -363,7 +370,7 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
 
   test "update：参加者を追加すると出席者と占有（calendar_events）が増える" do
     iv3 = User.create!(name: "鈴木 三郎", email: "suzuki@example.com", password: "password1234",
-                        participant: true)
+                        )
     meeting = create_meeting!(start_at: "2026-09-16T10:00:00+09:00", end_at: "2026-09-16T11:00:00+09:00")
 
     assert_difference "MeetingAttendee.count", 1 do
@@ -408,7 +415,7 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
 
   test "update：追加した参加者が埋まっていれば変更全体を中止する（BR-06）" do
     iv3 = User.create!(name: "鈴木 三郎", email: "suzuki@example.com", password: "password1234",
-                        participant: true)
+                        )
     iv3.calendar_events.create!(source: "external", title: "終日研修",
       start_at: Time.zone.parse("2026-09-16 10:00"), end_at: Time.zone.parse("2026-09-16 11:00"))
     meeting = create_meeting!(start_at: "2026-09-16T10:00:00+09:00", end_at: "2026-09-16T11:00:00+09:00")
@@ -460,12 +467,12 @@ class MeetingsControllerTest < ActionDispatch::IntegrationTest
     assert_equal Time.zone.parse("2026-09-16 15:00"), meeting.start_at
   end
 
-  test "update：participant でない user_id は無視される" do
+  test "update：存在しない user_id は無視される" do
     meeting = create_meeting!(start_at: "2026-09-16T10:00:00+09:00", end_at: "2026-09-16T11:00:00+09:00")
 
     patch meeting_path(meeting), params: {
       date: "2026-09-16", start_time: "10:00", duration: 60,
-      user_ids: [ "", @iv1.id, @operator.id ], # @operator は participant: false
+      user_ids: [ "", @iv1.id, User.maximum(:id) + 1 ],
       meeting: { guest_name: "山田", location_type: "online" }
     }
 

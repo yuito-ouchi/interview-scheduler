@@ -4,9 +4,8 @@ require "test_helper"
 class UsersControllerTest < ActionDispatch::IntegrationTest
   setup do
     @admin = User.create!(name: "採用 花子", email: "admin@example.com", password: "password1234",
-                           operator: true, admin: true)
-    @non_admin = User.create!(name: "調整 太郎", email: "op@example.com", password: "password1234",
-                               operator: true, admin: false)
+                           admin: true)
+    @non_admin = User.create!(name: "調整 太郎", email: "op@example.com", password: "password1234")
   end
 
   # sign_in(user) は Devise::Test::IntegrationHelpers（test_helper.rb・判断メモ D-12）
@@ -18,23 +17,31 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
     assert_select "table.users-table"
   end
 
-  test "admin でない operator は /users にアクセスできず root へ戻される" do
+  test "admin でないメンバーは /users にアクセスできず root へ戻される" do
     sign_in @non_admin
     get users_path
     assert_redirected_to root_path
   end
 
-  test "admin はメンバーを追加できる" do
+  test "admin はメンバーを追加できる（admin を付けなければ通常のメンバー）" do
     sign_in @admin
     assert_difference "User.count", 1 do
       post users_path, params: { user: { name: "新規 太郎", email: "new@example.com",
-                                          password: "password1234", participant: true } }
+                                          password: "password1234" } }
     end
     assert_redirected_to users_path
-    assert User.find_by(email: "new@example.com").participant?
+    assert_not User.find_by(email: "new@example.com").admin?
   end
 
-  test "admin でない operator はメンバーを追加できない" do
+  test "admin はメンバーに管理者権限を付けられる（D-15：設定できるのは admin だけ）" do
+    sign_in @admin
+    post users_path, params: { user: { name: "新規 太郎", email: "new@example.com",
+                                        password: "password1234", admin: true } }
+
+    assert User.find_by(email: "new@example.com").admin?
+  end
+
+  test "admin でないメンバーはメンバーを追加できない" do
     sign_in @non_admin
     assert_no_difference "User.count" do
       post users_path, params: { user: { name: "新規 太郎", email: "new@example.com",
@@ -46,7 +53,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "admin はメンバーを編集できる。パスワード欄を空にすれば変更されない" do
     sign_in @admin
     target = User.create!(name: "対象 花子", email: "target@example.com",
-                           password: "password1234", participant: true)
+                           password: "password1234")
     original_digest = target.encrypted_password
 
     patch user_path(target), params: { user: { name: "対象 花子（改）", email: target.email, password: "" } }
@@ -74,7 +81,7 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "登録者になっているメンバーは削除できない（restrict_with_exception）" do
     sign_in @admin
     creator = User.create!(name: "登録者", email: "creator@example.com",
-                            password: "password1234", operator: true)
+                            password: "password1234")
     Meeting.create!(guest_name: "ゲスト", location_type: "online", created_by: creator,
                      start_at: 1.day.from_now, end_at: 1.day.from_now + 1.hour)
 
@@ -87,9 +94,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "今後のミーティングに出席予定の参加者は削除できない（D-8）" do
     sign_in @admin
     creator = User.create!(name: "登録者", email: "creator@example.com",
-                            password: "password1234", operator: true)
+                            password: "password1234")
     attendee = User.create!(name: "参加者", email: "attendee@example.com",
-                             password: "password1234", participant: true)
+                             password: "password1234")
     meeting = Meeting.create!(guest_name: "ゲスト", location_type: "online", created_by: creator,
                                start_at: 1.day.from_now, end_at: 1.day.from_now + 1.hour)
     MeetingAttendee.create!(meeting: meeting, user: attendee)
@@ -103,9 +110,9 @@ class UsersControllerTest < ActionDispatch::IntegrationTest
   test "過去のミーティングにしか出席していない参加者は削除できる" do
     sign_in @admin
     creator = User.create!(name: "登録者", email: "creator@example.com",
-                            password: "password1234", operator: true)
+                            password: "password1234")
     attendee = User.create!(name: "参加者", email: "attendee@example.com",
-                             password: "password1234", participant: true)
+                             password: "password1234")
     meeting = Meeting.create!(guest_name: "ゲスト", location_type: "online", created_by: creator,
                                start_at: 1.day.from_now, end_at: 1.day.from_now + 1.hour)
     MeetingAttendee.create!(meeting: meeting, user: attendee)

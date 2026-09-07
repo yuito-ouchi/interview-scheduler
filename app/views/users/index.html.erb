@@ -13,7 +13,7 @@
     <table class="users-table">
       <thead>
         <tr>
-          <th>氏名</th><th>メールアドレス</th><th>主催者</th><th>参加者</th><th>管理者</th><th></th>
+          <th>氏名</th><th>メールアドレス</th><th>管理者</th><th></th>
         </tr>
       </thead>
       <tbody>
@@ -21,8 +21,6 @@
           <tr>
             <td><%= user.name %></td>
             <td><%= user.email %></td>
-            <td><%= "✓" if user.operator? %></td>
-            <td><%= "✓" if user.participant? %></td>
             <td><%= "✓" if user.admin? %></td>
             <td class="users-table__actions">
               <%= link_to "編集", edit_user_path(user) %>

@@ -6,7 +6,7 @@ class MeetingsController < ApplicationController
   # 予約フォーム（booking_form フレーム）も一緒に組み立てる（§6.6 手順5）。
   def new
     assign_params
-    @participants = User.where(participant: true).order(:name)
+    @participants = User.order(:name)
     load_calendar if @user_ids.any?
     prepare_booking if params[:start_at].present?
   end
@@ -15,7 +15,7 @@ class MeetingsController < ApplicationController
   # フォーム送信・週送りの受け口。週カレンダー部分だけ差し替える。
   def calendar
     assign_params
-    @participants = User.where(participant: true).order(:name)
+    @participants = User.order(:name)
     load_calendar if @user_ids.any?
     render partial: "calendar_frame"
   end
@@ -57,7 +57,7 @@ class MeetingsController < ApplicationController
   # 無ければ初回表示＝現在の予約日時のまま。
   def edit
     apply_proposed_slot
-    @participants = User.where(participant: true).order(:name)
+    @participants = User.order(:name)
     @user_ids     = edit_user_ids
     @week_of      = params[:week_of].present? ? week_of_param : @meeting.start_at.beginning_of_week
     load_edit_calendar if @user_ids.any?
@@ -78,7 +78,7 @@ class MeetingsController < ApplicationController
       # confirm_update は失敗時も @meeting.start_at/end_at を送信された（弾かれた）
       # 値のまま残すため、その週を表示すれば「なぜ弾かれたか」がそのまま見える
       # （date/start_time が未入力で弾かれた場合だけ start_at が nil なので今週にフォールバック）。
-      @participants = User.where(participant: true).order(:name)
+      @participants = User.order(:name)
       @week_of = (@meeting.start_at || Time.current).beginning_of_week
       load_edit_calendar if @user_ids.any?
       render :edit, status: :unprocessable_entity
@@ -155,7 +155,7 @@ class MeetingsController < ApplicationController
   # A-2-4：予定とルールを事前読み込みし、区間ごとにDBを叩かない。
   def load_calendar
     @tenant_rules = AvailabilityRule.where(user_id: nil).to_a
-    @users = User.where(id: @user_ids, participant: true)
+    @users = User.where(id: @user_ids)
                  .includes(:availability_rules)
                  .order(:name)
                  .to_a
@@ -195,7 +195,7 @@ class MeetingsController < ApplicationController
   # 対象メンバーは @user_ids＝サイドバーで選ばれている参加者（D-14）。
   def load_edit_calendar
     @tenant_rules = AvailabilityRule.where(user_id: nil).to_a
-    @users = User.where(id: @user_ids, participant: true)
+    @users = User.where(id: @user_ids)
                  .includes(:availability_rules)
                  .order(:name)
                  .to_a
@@ -226,16 +226,16 @@ class MeetingsController < ApplicationController
     return if start_at.nil? || end_at.nil?
 
     @meeting ||= Meeting.new(start_at: start_at, end_at: end_at, location_type: "online")
-    @selected_participants = User.where(id: @user_ids, participant: true).order(:name).to_a
+    @selected_participants = User.where(id: @user_ids).order(:name).to_a
     @booking = @selected_participants.any?
   end
 
   # 確定に失敗したとき、画面①を丸ごと描き直す（カレンダーとフォームの両方）。
   def rerender_new_with_booking
     assign_params
-    @participants = User.where(participant: true).order(:name)
+    @participants = User.order(:name)
     load_calendar if @user_ids.any?
-    @selected_participants = User.where(id: @user_ids, participant: true).order(:name).to_a
+    @selected_participants = User.where(id: @user_ids).order(:name).to_a
     @booking = @meeting.start_at.present? && @meeting.end_at.present? && @selected_participants.any?
     render :new, status: :unprocessable_entity
   end
@@ -249,7 +249,7 @@ class MeetingsController < ApplicationController
     return false unless @meeting.valid?(:create) # 過去日時・必須項目・区間はここで弾く（§9.3-1）
 
     ActiveRecord::Base.transaction do
-      users = User.where(id: @user_ids, participant: true)
+      users = User.where(id: @user_ids)
                   .includes(:availability_rules, :calendar_events)
                   .order(:id)
                   .to_a
@@ -305,7 +305,7 @@ class MeetingsController < ApplicationController
     ActiveRecord::Base.transaction do
       # 出席者・占有を作り直す前に、除外対象の占有idを控えておく。
       own_event_ids = @meeting.calendar_events.pluck(:id)
-      users = User.where(id: @user_ids, participant: true)
+      users = User.where(id: @user_ids)
                   .includes(:availability_rules, :calendar_events)
                   .order(:id)
                   .to_a

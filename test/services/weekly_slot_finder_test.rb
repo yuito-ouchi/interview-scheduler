@@ -13,8 +13,8 @@ class WeeklySlotFinderTest < ActiveSupport::TestCase
       @tenant_rules << AvailabilityRule.create!(user_id: nil, day_of_week: wday,
         start_time: "12:00", end_time: "13:00", rule_type: "block", label: "昼休み")
     end
-    @a = User.create!(name: "参加 A", email: "a@example.com", password: "password1234", participant: true)
-    @b = User.create!(name: "参加 B", email: "b@example.com", password: "password1234", participant: true)
+    @a = User.create!(name: "参加 A", email: "a@example.com", password: "password1234")
+    @b = User.create!(name: "参加 B", email: "b@example.com", password: "password1234")
   end
 
   def finder(users, duration: 60, week_of: MONDAY)

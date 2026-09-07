@@ -5,8 +5,8 @@
 
   <% if @participants.empty? %>
     <p class="hint">
-      参加者（<code>participant</code>）が登録されていません。
-      メンバー登録画面は後の段階で実装します。いまは <code>bin/rails db:seed</code> で投入できます。
+      メンバーが登録されていません。
+      設定の<%= link_to "メンバー管理", users_path %>から追加してください（管理者のみ）。
     </p>
   <% else %>
     <%= render "calendar_frame" %>

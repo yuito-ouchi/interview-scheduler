@@ -6,9 +6,9 @@ require "test_helper"
 class TenantRulesControllerTest < ActionDispatch::IntegrationTest
   setup do
     @admin = User.create!(name: "採用 花子", email: "admin@example.com", password: "password1234",
-                           operator: true, admin: true)
+                           admin: true)
     @non_admin = User.create!(name: "調整 太郎", email: "op@example.com", password: "password1234",
-                               operator: true, admin: false)
+                               admin: false)
   end
 
   # sign_in(user) は Devise::Test::IntegrationHelpers（test_helper.rb・判断メモ D-12）
@@ -20,7 +20,7 @@ class TenantRulesControllerTest < ActionDispatch::IntegrationTest
     assert_select ".settings-nav__tab.is-active", text: "テナント設定"
   end
 
-  test "admin でない operator は /tenant_rules にアクセスできず root へ戻される" do
+  test "admin でないメンバーは /tenant_rules にアクセスできず root へ戻される" do
     sign_in @non_admin
     get tenant_rules_path
     assert_redirected_to root_path
@@ -47,9 +47,8 @@ class TenantRulesControllerTest < ActionDispatch::IntegrationTest
 
   test "index は個人ルールを表示しない（tenant_wide のみ）" do
     sign_in @admin
-    participant = User.create!(name: "参加 者", email: "p@example.com", password: "password1234",
-                                participant: true)
-    AvailabilityRule.create!(user_id: participant.id, day_of_week: 1, start_time: "09:00",
+    member = User.create!(name: "参加 者", email: "p@example.com", password: "password1234")
+    AvailabilityRule.create!(user_id: member.id, day_of_week: 1, start_time: "09:00",
                               end_time: "09:30", rule_type: "block", label: "個人の予定")
 
     get tenant_rules_path
@@ -107,7 +106,7 @@ class TenantRulesControllerTest < ActionDispatch::IntegrationTest
     assert_response :not_found
   end
 
-  test "admin でない operator はルールを追加できない" do
+  test "admin でないメンバーはルールを追加できない" do
     sign_in @non_admin
     assert_no_difference "AvailabilityRule.count" do
       post tenant_rules_path(rule_type: "block"), params: {
@@ -172,9 +171,8 @@ class TenantRulesControllerTest < ActionDispatch::IntegrationTest
 
   test "この画面からは個人ルールを操作できない（tenant_wide に絞る）" do
     sign_in @admin
-    participant = User.create!(name: "参加 者", email: "p@example.com", password: "password1234",
-                                participant: true)
-    personal_block = AvailabilityRule.create!(user_id: participant.id, day_of_week: 3,
+    member = User.create!(name: "参加 者", email: "p@example.com", password: "password1234")
+    personal_block = AvailabilityRule.create!(user_id: member.id, day_of_week: 3,
       start_time: "12:00", end_time: "13:00", rule_type: "block", label: "個人の予定")
 
     get edit_tenant_rule_path(personal_block)
